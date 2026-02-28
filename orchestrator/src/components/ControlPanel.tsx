@@ -77,7 +77,7 @@ export default function ControlPanel({
     useEffect(() => {
         const interval = setInterval(() => {
             if (!isServerDead) {
-                setLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] System healthy. Monitoring GCP Pub/Sub stream...`]);
+                setLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] System healthy. Monitoring Firestore streams...`]);
             }
         }, 8000);
         return () => clearInterval(interval);

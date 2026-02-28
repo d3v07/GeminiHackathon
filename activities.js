@@ -2,7 +2,6 @@ require('dotenv').config();
 require('dotenv').config({ path: './orchestrator/.env.local' });
 const { VertexAI } = require('@google-cloud/vertexai');
 const { GoogleGenAI } = require('@google/genai');
-const { PubSub } = require('@google-cloud/pubsub');
 const admin = require('firebase-admin');
 
 const fs = require('fs');
@@ -28,7 +27,10 @@ const db = admin.firestore();
 // Initialize Vertex AI
 const vertexAI = new VertexAI({ project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, location: 'us-central1' });
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const pubsub = new PubSub();
+try {
+} catch (e) {
+    console.warn('PubSub not available — running without it.');
+}
 
 async function executeToolCall(name, args) {
     if (name === 'get_weather_mcp') {
@@ -143,7 +145,7 @@ async function executeToolCall(name, args) {
 async function generateGeminiContent(messages, mcpTools) {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3-flash-preview',
             contents: messages,
             config: {
                 tools: [{ functionDeclarations: mcpTools }]
@@ -178,21 +180,27 @@ async function generateGeminiContent(messages, mcpTools) {
 
 async function pingOrchestrator(npcId, currentState, currentAction) {
     try {
-        const topic = pubsub.topic('agent-updates');
-        const payload = JSON.stringify({
+        // PRIMARY: Write state directly to Firestore (already authenticated via Admin SDK)
+        const agentRef = db.collection('agents').doc(npcId);
+        await agentRef.set({
             agentId: npcId,
             lat: currentState.lat,
             lng: currentState.lng,
+            role: currentState.role || '',
             defaultTask: currentAction,
-            memoryContext: JSON.stringify(currentState.history?.slice(-2) || [])
-        });
+            sentimentScore: currentState.sentimentScore || 0,
+            memoryContext: JSON.stringify(currentState.history?.slice(-2) || []),
+            lastUpdated: new Date().toISOString(),
+            isInteracting: false
+        }, { merge: true });
+        console.log(`[NPC: ${npcId}] State persisted to Firestore at ${currentState.lat}, ${currentState.lng}`);
 
-        await topic.publishMessage({ data: Buffer.from(payload) });
-        console.log(`[NPC: ${npcId}] Published update to Pub/Sub 'agent-updates'`);
+        // PubSub removed completely to avoid ADC auth crashes locally.
+        // The fallback direct-to-Firestore write ensures persistence.
 
-        // Polling Firestore for interaction status set by Orchestrator
+        // Check for interaction status (cognitive collision detection)
         try {
-            const agentDoc = await db.collection('agents').doc(npcId).get();
+            const agentDoc = await agentRef.get();
             if (agentDoc.exists) {
                 const data = agentDoc.data();
                 if (data.isInteracting && data.encounterWith) {
@@ -213,7 +221,7 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
 
         return { success: true, isInteracting: false };
     } catch (e) {
-        console.error(`[NPC: ${npcId}] Failed to publish to Pub/Sub:`, e.message);
+        console.error(`[NPC: ${npcId}] Failed to persist state:`, e.message);
         return { success: false, error: e.message };
     }
 }
@@ -241,7 +249,7 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3-flash-preview',
             contents: { role: 'user', parts: [{ text: collisionPrompt }] },
             config: {
                 tools: [{ googleSearch: {} }]
@@ -253,7 +261,6 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
         console.log(`\n[Multi-Agent Dialogue]\n${textResponse}`);
 
         // Publish to Pub/Sub 'agent-encounters' topic
-        const topic = pubsub.topic('agent-encounters');
         const payload = JSON.stringify({
             participants: [agentA_state.agentId || agentA_state.role, agentB_state.agentId || agentB_state.role],
             transcript: textResponse,
