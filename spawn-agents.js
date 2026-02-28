@@ -152,16 +152,75 @@ async function run() {
             console.log(`Could not fetch state for ${npcId}, spawning fresh.`);
         }
 
-        await client.workflow.start('npcLoop', {
-            taskQueue: 'npc-simulation',
-            workflowId: npcId,
-            args: [npcId, initialState, npc.instruction],
-        });
-
-        console.log(`[Spawned Workflow] ${npcId} -> Role: ${npc.role}`);
+        try {
+            await client.workflow.start('npcLoop', {
+                taskQueue: 'npc-simulation',
+                workflowId: npcId,
+                args: [npcId, initialState, npc.instruction],
+            });
+            console.log(`[Spawned Workflow] ${npcId} -> Role: ${npc.role}`);
+        } catch (e) {
+            console.log(`[Already Running] ${npcId} -> Role: ${npc.role}`);
+        }
     }
 
-    console.log('All agents spawned successfully! They are now running autonomously.');
+    // Phase 17: Spawn Sub-Character Swarms
+    const swarmConfigs = [
+        { parentRole: "Chinatown Restaurant Owner", swarmRole: "Hungry Customer", count: 10, offset: 0.002 },
+        { parentRole: "Central Park Dog Walker", swarmRole: "Fellow Dog Walker", count: 10, offset: 0.003 },
+        { parentRole: "Stressed Wall Street Broker", swarmRole: "Panicking Intern", count: 10, offset: 0.001 }
+    ];
+
+    console.log(`\nInitializing Ripple Effect Swarms...`);
+    for (const config of swarmConfigs) {
+        const parentNpc = npcsToSpawn.find(n => n.role === config.parentRole);
+        if (!parentNpc) continue;
+
+        for (let i = 1; i <= config.count; i++) {
+            const swarmRole = `${config.swarmRole} ${i}`;
+            const swarmId = `npc-${swarmRole.replace(/\s+/g, '-').toLowerCase()}`;
+
+            // Orbit calculation
+            const randomLatOffset = (Math.random() - 0.5) * config.offset;
+            const randomLngOffset = (Math.random() - 0.5) * config.offset;
+            const startLat = parentNpc.startLat + randomLatOffset;
+            const startLng = parentNpc.startLng + randomLngOffset;
+
+            const instruction = `You are a '${config.swarmRole}'. You exist in the orbit of the '${config.parentRole}'. Your thoughts and actions are heavily influenced by the mood and behavior of the people around you. You are acting in an asynchronous loop within New York City. React to your environment and any characters you encounter.`;
+
+            let initialState = { lat: startLat, lng: startLng, role: swarmRole, history: [] };
+
+            try {
+                const doc = await db.collection('agents').doc(swarmId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.lat && data.lng) {
+                        initialState.lat = data.lat;
+                        initialState.lng = data.lng;
+                    }
+                    if (data.memoryContext) {
+                        try {
+                            const parsedHistory = JSON.parse(data.memoryContext);
+                            initialState.history = Array.isArray(parsedHistory) ? parsedHistory : [];
+                        } catch (e) { }
+                    }
+                }
+            } catch (err) { }
+
+            try {
+                await client.workflow.start('npcLoop', {
+                    taskQueue: 'npc-simulation',
+                    workflowId: swarmId,
+                    args: [swarmId, initialState, instruction],
+                });
+                console.log(`[Spawned Swarm Entity] ${swarmId} orbiting ${config.parentRole}`);
+            } catch (e) {
+                console.log(`[Already Running Swarm] ${swarmId} orbiting ${config.parentRole}`);
+            }
+        }
+    }
+
+    console.log('\nAll primary agents and Ripple Effect swarms spawned successfully! They are now running autonomously.');
 }
 
 run().catch((err) => {

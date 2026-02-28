@@ -56,6 +56,8 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
 export default function MapUI() {
     const [agents, setAgents] = useState<any[]>([]);
     const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
+    const [commMessage, setCommMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -95,6 +97,31 @@ export default function MapUI() {
         if (score > 0.3) return 'bg-emerald-400';
         if (score < -0.3) return 'bg-rose-400';
         return 'bg-sky-400';
+    };
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!commMessage.trim() || !selectedAgent || isSending) return;
+
+        setIsSending(true);
+        const text = commMessage;
+        setCommMessage('');
+
+        try {
+            await fetch('/api/interact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agentId: selectedAgent.id,
+                    message: text,
+                    role: selectedAgent.role
+                })
+            });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSending(false);
+        }
     };
 
     return (
@@ -242,7 +269,7 @@ export default function MapUI() {
                         </div>
 
                         {/* Footer Stats block */}
-                        <div className="mt-auto pt-8">
+                        <div className="mt-8">
                             <div className="bg-black/40 rounded border border-gray-900 p-3 grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-[8px] text-gray-600 uppercase tracking-widest">Last State Sync</span>
@@ -253,6 +280,31 @@ export default function MapUI() {
                                     <span className="text-[10px] font-mono text-emerald-500">CONNECTED</span>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Comm-Link Chat Feature */}
+                        <div className="mt-auto pt-6">
+                            <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-[0.2em] flex items-center gap-2 mb-3">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                User Comm-Link
+                            </span>
+                            <form onSubmit={handleSendMessage} className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={commMessage}
+                                    onChange={(e) => setCommMessage(e.target.value)}
+                                    disabled={isSending}
+                                    placeholder="Type a message to influence sentiment..."
+                                    className="flex-1 bg-gray-900/50 border border-gray-800 rounded px-3 py-2 text-[11px] font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isSending || !commMessage.trim()}
+                                    className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[10px] font-bold tracking-wider uppercase transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[60px]"
+                                >
+                                    {isSending ? <span className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></span> : 'Send'}
+                                </button>
+                            </form>
                         </div>
                     </div>
                 )}
