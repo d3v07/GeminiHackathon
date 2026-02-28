@@ -390,31 +390,30 @@ export default function ExplorePage() {
         return () => window.removeEventListener('keydown', handler);
     }, [nearbyAgent, chatOpen]);
 
-    // Send a chat message to the NPC
     const sendMessage = async () => {
         if (!inputText.trim() || !nearbyAgent || isSending) return;
         const userText = inputText.trim();
         setInputText('');
-        setChatMessages(prev => [...prev, { role: 'user', text: userText }]);
+        const newUserMsg: ChatMessage = { role: 'user', text: userText };
+        setChatMessages(prev => [...prev, newUserMsg]);
         setIsSending(true);
 
         try {
-            const res = await fetch('/api/orchestrator', {
+            const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    agentId: nearbyAgent.agentId,
-                    lat: nearbyAgent.lat,
-                    lng: nearbyAgent.lng,
-                    defaultTask: `Respond in character as ${nearbyAgent.role}. The user says: "${userText}". Keep response under 50 words, stay in character.`,
-                    memoryContext: nearbyAgent.defaultTask
+                    agentRole: nearbyAgent.role,
+                    userMessage: userText,
+                    conversationHistory: [...chatMessages, newUserMsg],
+                    agentSentiment: nearbyAgent.sentimentScore || 0,
+                    agentTask: nearbyAgent.defaultTask,
                 })
             });
             const data = await res.json();
-            const reply = data?.interaction?.transcript || data?.message || `*${nearbyAgent.role} nods thoughtfully...*`;
-            setChatMessages(prev => [...prev, { role: 'npc', text: reply.substring(0, 200) }]);
+            setChatMessages(prev => [...prev, { role: 'npc', text: data.reply }]);
         } catch {
-            setChatMessages(prev => [...prev, { role: 'npc', text: '*looks away mysteriously and keeps walking...*' }]);
+            setChatMessages(prev => [...prev, { role: 'npc', text: `*${nearbyAgent.role} looks away and disappears into the crowd...*` }]);
         } finally {
             setIsSending(false);
         }
