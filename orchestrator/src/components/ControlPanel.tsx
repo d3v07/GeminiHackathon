@@ -83,50 +83,60 @@ export default function ControlPanel({
         return () => clearInterval(interval);
     }, [isServerDead]);
 
-    // Firestore listeners
+    const prevAgentsRef = useRef<Record<string, any>>({});
+
+    // API Polling listener
     useEffect(() => {
-        // 1. Agent Updates Listener
-        const unsubscribeAgents = onSnapshot(collection(db, 'agents'), (snapshot) => {
-            const agentsData: any[] = [];
-            snapshot.forEach((doc) => {
-                agentsData.push({ id: doc.id, ...doc.data() });
-            });
-            setAgents(agentsData);
+        let isMounted = true;
 
-            snapshot.docChanges().forEach((change) => {
-                const agentId = change.doc.id;
-                const data = change.doc.data();
+        const fetchState = async () => {
+            if (isServerDead) return;
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+                if (!isMounted || !data.agents) return;
 
-                if (change.type === 'added') {
-                    setLogs(prev => [...prev.slice(-15), `[CLOUD] Agent ${agentId} online. Role: ${data.role || 'GCP Entity'}`]);
-                }
-                if (change.type === 'modified') {
-                    if (data.isInteracting && data.lastEncounterDialogue && data.lastEncounterDialogue !== lastProcessedEncounter.current) {
-                        setLogs(prev => [...prev.slice(-15), `[SENTIMENT] Analyzing: "${data.lastEncounterDialogue.substring(0, 30)}..."`, `[DIALOGUE] ${agentId}: ${data.lastEncounterDialogue}`]);
-                        lastProcessedEncounter.current = data.lastEncounterDialogue;
-                        fetchAndQueueTTS(data.lastEncounterDialogue, data.role || "Unknown");
-                    } else if (!data.isInteracting) {
-                        setLogs(prev => [...prev.slice(-15), `[LOG] ${agentId} Action: ${data.defaultTask?.substring(0, 40) || 'Moving...'}`]);
+                const newAgentsData = data.agents;
+                const newEncounters = data.encounters || [];
+
+                setAgents(newAgentsData);
+                setEncounters(newEncounters);
+
+                // Compute differences for logs
+                newAgentsData.forEach((agent: any) => {
+                    const agentId = agent.id;
+                    const oldAgent = prevAgentsRef.current[agentId];
+                    const newAgent = agent;
+
+                    if (!oldAgent) {
+                        setLogs(prev => [...prev.slice(-15), `[CLOUD] Agent ${agentId} online. Role: ${newAgent.role || 'GCP Entity'}`]);
+                    } else if (JSON.stringify(oldAgent) !== JSON.stringify(newAgent)) {
+                        // Modified
+                        if (newAgent.isInteracting && newAgent.lastEncounterDialogue && newAgent.lastEncounterDialogue !== lastProcessedEncounter.current) {
+                            setLogs(prev => [...prev.slice(-15), `[SENTIMENT] Analyzing: "${newAgent.lastEncounterDialogue.substring(0, 30)}..."`, `[DIALOGUE] ${agentId}: ${newAgent.lastEncounterDialogue}`]);
+                            lastProcessedEncounter.current = newAgent.lastEncounterDialogue;
+                            fetchAndQueueTTS(newAgent.lastEncounterDialogue, newAgent.role || "Unknown");
+                        } else if (!newAgent.isInteracting && oldAgent.defaultTask !== newAgent.defaultTask) {
+                            setLogs(prev => [...prev.slice(-15), `[LOG] ${agentId} Action: ${newAgent.defaultTask?.substring(0, 40) || 'Moving...'}`]);
+                        }
                     }
-                }
-            });
-        });
 
-        // 2. Encounters History Listener
-        const encountersQuery = query(collection(db, 'encounters'), orderBy('timestamp', 'desc'));
-        const unsubscribeEncounters = onSnapshot(encountersQuery, (snapshot) => {
-            const newEncounters: Encounter[] = [];
-            snapshot.forEach((doc) => {
-                newEncounters.push({ id: doc.id, ...doc.data() } as Encounter);
-            });
-            setEncounters(newEncounters);
-        });
+                    prevAgentsRef.current[agentId] = { ...newAgent };
+                });
+
+            } catch (e) {
+                console.error("Failed to fetch state API", e);
+            }
+        };
+
+        fetchState();
+        const interval = setInterval(fetchState, 1500);
 
         return () => {
-            unsubscribeAgents();
-            unsubscribeEncounters();
+            isMounted = false;
+            clearInterval(interval);
         };
-    }, []);
+    }, [isServerDead]);
 
     const handleKill = () => {
         setIsServerDead(true);

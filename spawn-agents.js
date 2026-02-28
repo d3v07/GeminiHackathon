@@ -1,13 +1,23 @@
 require('dotenv').config();
+require('dotenv').config({ path: './orchestrator/.env.local' });
 const { Connection, Client } = require('@temporalio/client');
 const admin = require('firebase-admin');
+
+const fs = require('fs');
+
+let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+try {
+    const envLocal = fs.readFileSync('./orchestrator/.env.local', 'utf8');
+    const match = envLocal.match(/FIREBASE_PRIVATE_KEY="([^"]+)"/);
+    if (match) privateKey = match[1];
+} catch (e) { }
 
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert({
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+            privateKey: privateKey.replace(/\\n/g, '\n')
         })
     });
 }

@@ -21,25 +21,30 @@ export default function MapUI() {
     const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, 'agents'), (snapshot) => {
-            const agentsData: any[] = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                agentsData.push({
-                    id: doc.id,
-                    ...data
-                });
-            });
-            setAgents(agentsData);
-
-            // Update selected agent if they exist in the new snapshot
-            if (selectedAgent) {
-                const updated = agentsData.find(a => a.id === selectedAgent.id);
-                if (updated) setSelectedAgent(updated);
+        let isMounted = true;
+        const fetchState = async () => {
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+                if (isMounted && data.agents) {
+                    setAgents(data.agents);
+                    if (selectedAgent) {
+                        const updated = data.agents.find((a: any) => a.id === selectedAgent.id);
+                        if (updated) setSelectedAgent(updated);
+                    }
+                }
+            } catch (e) {
+                console.error("Poll error:", e);
             }
-        });
+        };
 
-        return () => unsubscribe();
+        fetchState();
+        const interval = setInterval(fetchState, 1500);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
     }, [selectedAgent]);
 
     const getMoodColor = (score: number = 0) => {
