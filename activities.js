@@ -7,8 +7,24 @@ const pubsub = new PubSub();
 
 async function executeToolCall(name, args) {
     if (name === 'get_weather_mcp') {
-        const isRaining = Math.random() > 0.5; // Still mock weather
-        return { weather: isRaining ? "Raining" : "Sunny", temperature: "65F" };
+        try {
+            // Use Open-Meteo (No key required) for real NYC weather integration (BUG-3 Fix)
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true`);
+            const weatherData = await weatherRes.json();
+            const current = weatherData.current_weather;
+
+            // Map code to human readable
+            const isRaining = current.weathercode >= 51;
+            return {
+                weather: isRaining ? "Raining" : "Clear",
+                temperature: `${current.temperature}C`,
+                windspeed: current.windspeed,
+                status: "OK"
+            };
+        } catch (e) {
+            console.error("Weather API Error:", e);
+            return { weather: "Clear", temperature: "20C", error: "API Timeout" };
+        }
     } else if (name === 'calculate_travel_time_mcp') {
         // Step 1: Live MCP Integration with Google Maps Routes API
         const travelModeMap = {
@@ -56,6 +72,9 @@ async function executeToolCall(name, args) {
             console.error("StreetView fetch error:", e);
             throw new Error('API Timeout or Error');
         }
+    } else if (name === 'move_to_location') {
+        // This tool is used to formally register the move in the state
+        return { status: "SUCCESS", lat: args.lat, lng: args.lng, destination: args.destination_name };
     }
     return { error: "Unknown tool" };
 }
@@ -66,7 +85,7 @@ async function generateGeminiContent(messages, mcpTools) {
             model: 'gemini-3-flash-preview',
             contents: messages,
             config: {
-                tools: [{ functionDeclarations: mcpTools }]
+                tools: [{ functionDeclarations: mcpTools }, { googleSearch: {} }]
             }
         });
 
@@ -134,7 +153,10 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: { role: 'user', parts: [{ text: collisionPrompt }] }
+            contents: { role: 'user', parts: [{ text: collisionPrompt }] },
+            config: {
+                tools: [{ googleSearch: {} }]
+            }
         });
 
         console.log(`\n[Multi-Agent Dialogue]\n${response.text}`);
