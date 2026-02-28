@@ -229,14 +229,26 @@ export async function POST(request: Request) {
                 lng
             });
 
-            // Update both agent docs with dialogue & sentiment
+            // Calculate Vibe Contagion (Mood Shifting)
+            const oldScoreA = agentAData.sentimentScore || 0;
+            const oldScoreB = agentBData.sentimentScore || 0;
+
+            // Agent A's new mood is influenced heavily by their old mood, but also by Agent B and the encounter itself
+            let newScoreA = (oldScoreA * 0.4) + (oldScoreB * 0.3) + (sentimentScore * 0.3);
+            newScoreA = Math.max(-1, Math.min(1, newScoreA));
+
+            // Agent B's new mood inverses the influence
+            let newScoreB = (oldScoreB * 0.4) + (oldScoreA * 0.3) + (sentimentScore * 0.3);
+            newScoreB = Math.max(-1, Math.min(1, newScoreB));
+
+            // Update both agent docs with dialogue & distinct shifted sentiments
             await agentsRef.doc(agentId).update({
                 lastEncounterDialogue: transcript,
-                sentimentScore
+                sentimentScore: newScoreA
             });
             await agentsRef.doc(collidingAgentId).update({
                 lastEncounterDialogue: transcript,
-                sentimentScore
+                sentimentScore: newScoreB
             });
 
             return NextResponse.json({

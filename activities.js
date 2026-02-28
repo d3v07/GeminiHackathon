@@ -135,6 +135,54 @@ async function executeToolCall(name, args) {
             console.error("Places API error:", e);
             throw new Error('API Timeout or Error');
         }
+    } else if (name === 'scan_for_nearby_agents') {
+        try {
+            const snapshot = await db.collection('agents').get();
+            const nearbyAgents = [];
+
+            snapshot.forEach(doc => {
+                const other = doc.data();
+                if (other.agentId && other.lat && other.lng) {
+                    // Haversine
+                    const R = 6371e3; // metres
+                    const φ1 = args.lat * Math.PI / 180;
+                    const φ2 = other.lat * Math.PI / 180;
+                    const Δφ = (other.lat - args.lat) * Math.PI / 180;
+                    const Δλ = (other.lng - args.lng) * Math.PI / 180;
+
+                    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                        Math.cos(φ1) * Math.cos(φ2) *
+                        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    const distance = R * c;
+
+                    if (distance > 10 && distance <= args.radiusMeters) { // Don't return self (distance > 10)
+                        nearbyAgents.push({
+                            id: other.agentId,
+                            role: other.role || 'Unknown Entity',
+                            distanceMeters: Math.round(distance),
+                            lat: other.lat,
+                            lng: other.lng,
+                            currentTask: other.defaultTask || 'Roaming'
+                        });
+                    }
+                }
+            });
+
+            if (nearbyAgents.length > 0) {
+                // Return top 5 closest
+                nearbyAgents.sort((a, b) => a.distanceMeters - b.distanceMeters);
+                return {
+                    status: "SUCCESS",
+                    message: `Found ${nearbyAgents.length} entities nearby. You can move to their coordinates to intercept them.`,
+                    agents: nearbyAgents.slice(0, 5)
+                };
+            }
+            return { status: "SUCCESS", message: "No other agents found within this radius. They might be in a different neighborhood." };
+        } catch (e) {
+            console.error("Scanner tool error:", e);
+            throw new Error('API Timeout or Error');
+        }
     } else if (name === 'move_to_location') {
         // This tool is used to formally register the move in the state
         return { status: "SUCCESS", lat: args.lat, lng: args.lng, destination: args.destination_name };

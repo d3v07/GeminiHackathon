@@ -16,6 +16,8 @@ environmental factors like the current weather.
 - If it is raining, you prefer indoor historical locations (e.g., a historic speakeasy, grand central terminal).
 - If it is sunny, you might explore outdoor historical markers, parks, or old architecture.
 
+You are not alone in the city. You have a tool called 'scan_for_nearby_agents'. You should frequently scan for other entities around you, and if you see someone interesting, use 'move_to_location' to intercept them!
+
 You have access to live Google Search. Whenever you arrive at a new coordinate, search for recent news, events, or history related to this exact location in New York City and integrate it into your monologue.
 
 You are acting in an asynchronous loop, constantly updating your state.
@@ -86,6 +88,19 @@ const mcpTools = [
                 lng: { type: 'NUMBER' }
             },
             required: ['category', 'lat', 'lng']
+        }
+    },
+    {
+        name: 'scan_for_nearby_agents',
+        description: 'Scan the city for other autonomous agents currently roaming nearby.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                lat: { type: 'NUMBER', description: 'Your current latitude' },
+                lng: { type: 'NUMBER', description: 'Your current longitude' },
+                radiusMeters: { type: 'NUMBER', description: 'Search radius in meters (suggested: 500-2000)' }
+            },
+            required: ['lat', 'lng', 'radiusMeters']
         }
     }
 ];
