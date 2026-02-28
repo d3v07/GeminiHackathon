@@ -1,7 +1,9 @@
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
+const { PubSub } = require('@google-cloud/pubsub');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const pubsub = new PubSub();
 
 async function executeToolCall(name, args) {
     if (name === 'get_weather_mcp') {
@@ -44,6 +46,16 @@ async function executeToolCall(name, args) {
             console.error("Google Maps API Error:", e);
             throw new Error('API Timeout or Error');
         }
+    } else if (name === 'describe_surroundings') {
+        try {
+            const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${args.lat},${args.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+            const res = await fetch(url);
+            const buffer = await res.arrayBuffer();
+            return { base64: Buffer.from(buffer).toString('base64') };
+        } catch (e) {
+            console.error("StreetView fetch error:", e);
+            throw new Error('API Timeout or Error');
+        }
     }
     return { error: "Unknown tool" };
 }
@@ -51,7 +63,7 @@ async function executeToolCall(name, args) {
 async function generateGeminiContent(messages, mcpTools) {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-flash-preview',
             contents: messages,
             config: {
                 tools: [{ functionDeclarations: mcpTools }]
@@ -80,36 +92,20 @@ async function generateGeminiContent(messages, mcpTools) {
 
 async function pingOrchestrator(npcId, currentState, currentAction) {
     try {
-        const res = await fetch('http://localhost:3000/api/orchestrator', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                agentId: npcId,
-                lat: currentState.lat,
-                lng: currentState.lng,
-                defaultTask: currentAction,
-                memoryContext: JSON.stringify(currentState.history?.slice(-2) || [])
-            })
+        const topic = pubsub.topic('agent-updates');
+        const payload = JSON.stringify({
+            agentId: npcId,
+            lat: currentState.lat,
+            lng: currentState.lng,
+            defaultTask: currentAction,
+            memoryContext: JSON.stringify(currentState.history?.slice(-2) || [])
         });
 
-        // Don't crash if orchestrator isn't running for tests
-        if (!res.ok) return { success: false, status: res.status };
-
-        const data = await res.json();
-
-        if (data.interaction && data.interaction.withAgent) {
-            const collidingAgentState = {
-                role: "Unknown Encountee",
-                lat: currentState.lat,
-                lng: currentState.lng,
-                history: []
-            };
-            await trigger_multi_agent_interaction(currentState, collidingAgentState);
-        }
+        await topic.publishMessage({ data: Buffer.from(payload) });
+        console.log(`[NPC: ${npcId}] Published update to Pub/Sub 'agent-updates'`);
         return { success: true };
     } catch (e) {
-        // We log, but don't strictly crash the workflow if the ping fails
-        console.error(`[NPC: ${npcId}] Failed to ping World Orchestrator:`, e.message);
+        console.error(`[NPC: ${npcId}] Failed to publish to Pub/Sub:`, e.message);
         return { success: false, error: e.message };
     }
 }
@@ -137,7 +133,7 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-flash-preview',
             contents: { role: 'user', parts: [{ text: collisionPrompt }] }
         });
 

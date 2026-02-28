@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/d3v07/GeminiHackathon#readme",
   "dependencies": {
+    "@google-cloud/pubsub": "^5.3.0",
     "@google/genai": "^1.43.0",
     "@temporalio/activity": "^1.15.0",
     "@temporalio/client": "^1.15.0",

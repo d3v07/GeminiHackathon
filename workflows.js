@@ -49,6 +49,18 @@ const mcpTools = [
             },
             required: ['origin_lat', 'origin_lng', 'dest_lat', 'dest_lng', 'mode']
         }
+    },
+    {
+        name: 'describe_surroundings',
+        description: 'Get a real-world snapshot of the current location to see what it looks like.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                lat: { type: 'NUMBER' },
+                lng: { type: 'NUMBER' }
+            },
+            required: ['lat', 'lng']
+        }
     }
 ];
 
@@ -79,9 +91,18 @@ async function npcLoop(npcId, initialState) {
                     try {
                         let toolResult = await activities.executeToolCall(call.name, call.args);
 
+                        let parts = [{ functionResponse: { name: call.name, response: { status: "OK" } } }];
+
+                        if (call.name === 'describe_surroundings') {
+                            parts.push({ text: "React to what you see in the real world." });
+                            parts.push({ inlineData: { data: toolResult.base64, mimeType: 'image/jpeg' } });
+                        } else {
+                            parts = [{ functionResponse: { name: call.name, response: toolResult } }];
+                        }
+
                         messages.push({
                             role: 'user',
-                            parts: [{ functionResponse: { name: call.name, response: toolResult } }]
+                            parts: parts
                         });
                     } catch (toolError) {
                         messages.push({
