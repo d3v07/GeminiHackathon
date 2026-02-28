@@ -3,57 +3,63 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 // ------------------------------------------------------------------
-// Types
+// 4 hardcoded showcase agents always visible and spread around
+// Times Square / Herald Square / Bryant Park / Penn Station area
 // ------------------------------------------------------------------
+const DEMO_AGENTS = [
+    {
+        agentId: 'demo-jazz',
+        role: 'Harlem Jazz Musician',
+        lat: 40.7580, lng: -73.9855, // Times Square center
+        sentimentScore: 0.6,
+        emoji: '🎷', color: '#3b82f6',
+        defaultTask: 'Busking outside the TKTS booth, looking for inspiration in the chaos of Times Square.',
+    },
+    {
+        agentId: 'demo-broker',
+        role: 'Stressed Wall Street Broker',
+        lat: 40.7566, lng: -73.9903, // 7th Ave south
+        sentimentScore: -0.4,
+        emoji: '💼', color: '#f59e0b',
+        defaultTask: 'Just closed a disastrous short position on NVDA. Needs coffee. Desperately.',
+    },
+    {
+        agentId: 'demo-rogue',
+        role: 'Rogue AI Terminal',
+        lat: 40.7600, lng: -73.9830, // 46th & 8th
+        sentimentScore: 0.1,
+        emoji: '🤖', color: '#06b6d4',
+        defaultTask: 'Scanning human emotional patterns from an abandoned kiosk. Logging data points.',
+    },
+    {
+        agentId: 'demo-socialite',
+        role: 'High Society Socialite',
+        lat: 40.7552, lng: -73.9820, // 44th & 8th
+        sentimentScore: 0.8,
+        emoji: '💅', color: '#e879f9',
+        defaultTask: 'Just finished a ghastly Broadway show. Looking for a proper restaurant.',
+    },
+];
+
 interface Agent {
     agentId: string;
     role: string;
     lat: number;
     lng: number;
     sentimentScore: number;
-    isInteracting: boolean;
+    emoji: string;
+    color: string;
     defaultTask?: string;
 }
 
-interface ChatMessage {
-    role: 'user' | 'npc';
-    text: string;
-}
+interface ChatMessage { role: 'user' | 'npc'; text: string; }
 
-// Role → emoji + color
-function getAgentEmoji(role: string): { emoji: string; color: string } {
-    const map: Record<string, { emoji: string; color: string }> = {
-        'Underground Historian': { emoji: '🧐', color: '#8b5cf6' },
-        '1920s Prohibition Ghost': { emoji: '👻', color: '#6b7280' },
-        'Stressed Wall Street Broker': { emoji: '💼', color: '#f59e0b' },
-        'Harlem Jazz Musician': { emoji: '🎷', color: '#3b82f6' },
-        'Brooklyn Tech Startup Founder': { emoji: '🚀', color: '#10b981' },
-        'Chinatown Restaurant Owner': { emoji: '🍜', color: '#ef4444' },
-        'Central Park Dog Walker': { emoji: '🐕', color: '#84cc16' },
-        'Times Square Street Performer': { emoji: '🎭', color: '#f43f5e' },
-        'Rogue AI Terminal': { emoji: '🤖', color: '#06b6d4' },
-        'Time-Displaced Tourist 1985': { emoji: '📸', color: '#a78bfa' },
-        'Aggressively Positive Yoga Instructor': { emoji: '🧘', color: '#34d399' },
-        'Late Night Slice Critic': { emoji: '🍕', color: '#fb923c' },
-        'Grumbling Sanitation Worker': { emoji: '🗑️', color: '#78716c' },
-        'High Society Socialite': { emoji: '💅', color: '#e879f9' },
-        'Undercover Pigeon Informant': { emoji: '🐦', color: '#a3a3a3' },
-    };
-    for (const [key, val] of Object.entries(map)) {
-        if (role.includes(key.split(' ')[0])) return val;
-    }
-    return { emoji: '🧍', color: '#60a5fa' };
-}
-
-// ------------------------------------------------------------------
-// Main Component
-// ------------------------------------------------------------------
 export default function ExplorePage() {
-    const mapRef = useRef<HTMLDivElement>(null);
-    const googleMapRef = useRef<google.maps.Map | null>(null);
-    const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const map3dRef = useRef<HTMLElement | null>(null);
+    const markerRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-    const [agents, setAgents] = useState<Agent[]>([]);
+    const [allAgents, setAllAgents] = useState<Agent[]>(DEMO_AGENTS);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
@@ -61,169 +67,149 @@ export default function ExplorePage() {
     const [godMode, setGodMode] = useState(false);
     const [worldTemp, setWorldTemp] = useState(20);
     const [globalMood, setGlobalMood] = useState(0);
-    const [mapsLoaded, setMapsLoaded] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    // Load Google Maps
+    // Load Google Maps alpha library for Map3DElement
     useEffect(() => {
-        if (window.google?.maps) { setMapsLoaded(true); return; }
-        const existingScript = document.getElementById('gmaps-loader');
-        if (existingScript) { existingScript.addEventListener('load', () => setMapsLoaded(true)); return; }
-
-        const script = document.createElement('script');
-        script.id = 'gmaps-loader';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=maps,marker&v=beta`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => setMapsLoaded(true);
-        document.head.appendChild(script);
+        const loadMapsAPI = async () => {
+            try {
+                // @ts-ignore
+                window.__mapsCallback = () => setLoaded(true);
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=maps3d&v=alpha&callback=__mapsCallback`;
+                script.async = true;
+                script.onerror = () => setLoadError('Failed to load Google Maps API');
+                document.head.appendChild(script);
+            } catch (e) {
+                setLoadError('Could not initialize map');
+            }
+        };
+        loadMapsAPI();
     }, []);
 
-    // Initialize the Google Map once loaded
+    // Initialize Map3DElement after API loads
     useEffect(() => {
-        if (!mapsLoaded || !mapRef.current || googleMapRef.current) return;
+        if (!loaded || !mapContainerRef.current) return;
 
-        const map = new google.maps.Map(mapRef.current, {
-            center: { lat: 40.758, lng: -73.9855 }, // Times Square
-            zoom: 18,
-            tilt: 67.5,                              // Maximum tilt – real 3D buildings
-            heading: -30,
-            mapId: 'DEMO_MAP_ID',                    // Required for AdvancedMarker & 3D
-            mapTypeId: 'roadmap',
-            disableDefaultUI: false,
-            gestureHandling: 'greedy',
-            streetViewControl: false,
-            fullscreenControl: false,
-            mapTypeControl: false,
-            styles: [
-                { elementType: "geometry", stylers: [{ color: "#0f1923" }] },
-                { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
-                { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
-                { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
-                { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#255763" }] },
-                { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2c6675" }] },
-                { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
-                { featureType: "poi", elementType: "geometry", stylers: [{ color: "#283d6a" }] },
-                { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#143b55" }] },
-            ],
+        try {
+            // @ts-ignore — maps3d is alpha API
+            const map3d = new google.maps.maps3d.Map3DElement({
+                center: { lat: 40.7580, lng: -73.9870, altitude: 200 },
+                range: 600,
+                tilt: 70,
+                heading: 330,
+            });
+
+            map3d.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;';
+            mapContainerRef.current.appendChild(map3d);
+            map3dRef.current = map3d;
+
+            // Add agent markers
+            allAgents.forEach(agent => addMarker3D(agent, map3d));
+
+            setLoaded(true);
+        } catch (e) {
+            console.error(e);
+            setLoadError('Map3D API unavailable. Check API key has Map3D enabled.');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loaded]);
+
+    const addMarker3D = (agent: Agent, map3d: HTMLElement) => {
+        // @ts-ignore
+        const marker = new google.maps.maps3d.Marker3DElement({
+            position: { lat: agent.lat, lng: agent.lng, altitude: 15 },
+            altitudeMode: 'RELATIVE_TO_GROUND',
+            extruded: true,
         });
 
-        googleMapRef.current = map;
+        const sentRingColor = agent.sentimentScore > 0.1 ? '#22c55e' : agent.sentimentScore < -0.1 ? '#ef4444' : '#f59e0b';
+        const content = document.createElement('div');
+        content.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;';
+        content.innerHTML = `
+            <div style="
+                background: rgba(0,0,0,0.85);
+                border: 2.5px solid ${sentRingColor};
+                border-radius: 50%;
+                width: 44px; height: 44px;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 24px;
+                box-shadow: 0 0 16px ${sentRingColor}99;
+            ">${agent.emoji}</div>
+            <div style="
+                background: rgba(0,0,0,0.8); color: ${agent.color};
+                font-size: 9px; font-family: monospace; font-weight: bold;
+                padding: 2px 6px; border-radius: 4px;
+                border: 1px solid ${agent.color}66; margin-top: 2px;
+                white-space: nowrap;
+            ">${agent.role.split(' ').slice(0, 3).join(' ')}</div>
+        `;
+        content.addEventListener('click', () => {
+            setSelectedAgent(agent);
+            setChatMessages([{ role: 'npc', text: `Hey! I'm the ${agent.role}. ${agent.defaultTask}` }]);
+        });
 
-        // 3D buildings are automatically rendered via the tilt + mapId combination
+        // @ts-ignore
+        marker.append(content);
+        map3d.append(marker);
+        markerRefs.current.set(agent.agentId, marker as HTMLElement);
+    };
 
-    }, [mapsLoaded]);
-
-    // Fetch agents every 5s
-    const fetchAgents = useCallback(async () => {
+    // Fetch live Firestore agents (spread them out if clustered)
+    const fetchLiveAgents = useCallback(async () => {
         try {
             const res = await fetch('/api/state');
             const data = await res.json();
-            if (data.agents) {
-                setAgents(data.agents);
-                const avg = data.agents.length > 0
-                    ? data.agents.reduce((a: number, ag: Agent) => a + (ag.sentimentScore || 0), 0) / data.agents.length
-                    : 0;
+            if (data.agents && Array.isArray(data.agents)) {
+                const emojiMap: Record<string, { e: string; c: string }> = {
+                    'Historian': { e: '🧐', c: '#8b5cf6' }, 'Ghost': { e: '👻', c: '#6b7280' },
+                    'Broker': { e: '💼', c: '#f59e0b' }, 'Jazz': { e: '🎷', c: '#3b82f6' },
+                    'Startup': { e: '🚀', c: '#10b981' }, 'Restaurant': { e: '🍜', c: '#ef4444' },
+                    'Dog': { e: '🐕', c: '#84cc16' }, 'Performer': { e: '🎭', c: '#f43f5e' },
+                    'Rogue': { e: '🤖', c: '#06b6d4' }, 'Tourist': { e: '📸', c: '#a78bfa' },
+                    'Yoga': { e: '🧘', c: '#34d399' }, 'Pizza': { e: '🍕', c: '#fb923c' },
+                    'Sanitation': { e: '🗑️', c: '#78716c' }, 'Socialite': { e: '💅', c: '#e879f9' },
+                    'Pigeon': { e: '🐦', c: '#a3a3a3' },
+                };
+                const mapped: Agent[] = data.agents.slice(0, 20).map((a: Record<string, unknown>, idx: number) => {
+                    const key = Object.keys(emojiMap).find(k => String(a.role || '').includes(k)) || '';
+                    const info = emojiMap[key] || { e: '🧍', c: '#60a5fa' };
+                    // Spread agents out by a tiny offset if they're very close
+                    const lat = (a.lat as number || 40.758) + Math.sin(idx * 1.3) * 0.001;
+                    const lng = (a.lng as number || -73.985) + Math.cos(idx * 1.7) * 0.001;
+                    return {
+                        agentId: a.agentId as string,
+                        role: a.role as string || 'Unknown',
+                        lat, lng,
+                        sentimentScore: a.sentimentScore as number || 0,
+                        emoji: info.e, color: info.c,
+                        defaultTask: a.defaultTask as string || 'Wandering NYC...',
+                    };
+                });
+                const avg = mapped.length > 0 ? mapped.reduce((s, a) => s + a.sentimentScore, 0) / mapped.length : 0;
                 setGlobalMood(avg);
+                setAllAgents([...DEMO_AGENTS, ...mapped.filter(a => !DEMO_AGENTS.find(d => d.agentId === a.agentId))]);
             }
-        } catch (e) {
-            console.warn('Could not fetch agents', e);
+        } catch {
+            // keep demo agents
         }
     }, []);
 
     useEffect(() => {
-        fetchAgents();
-        const interval = setInterval(fetchAgents, 5000);
+        fetchLiveAgents();
+        const interval = setInterval(fetchLiveAgents, 8000);
         return () => clearInterval(interval);
-    }, [fetchAgents]);
+    }, [fetchLiveAgents]);
 
-    // Place/update markers whenever agents or map changes
-    useEffect(() => {
-        if (!googleMapRef.current || !mapsLoaded || !window.google?.maps?.marker) return;
-
-        const map = googleMapRef.current;
-
-        // Remove stale markers
-        markersRef.current.forEach((marker, id) => {
-            if (!agents.find(a => a.agentId === id)) {
-                marker.map = null;
-                markersRef.current.delete(id);
-            }
-        });
-
-        agents.forEach(agent => {
-            const { emoji, color } = getAgentEmoji(agent.role);
-            const sentiment = agent.sentimentScore || 0;
-            const ringColor = sentiment > 0.1 ? '#22c55e' : sentiment < -0.1 ? '#ef4444' : '#f59e0b';
-
-            const content = document.createElement('div');
-            content.style.cssText = `
-                display: flex; flex-direction: column; align-items: center; cursor: pointer;
-                filter: drop-shadow(0 0 8px ${color}88);
-                transform-origin: bottom center;
-                transition: transform 0.2s;
-            `;
-            content.innerHTML = `
-                <div style="
-                    background: rgba(0,0,0,0.85);
-                    border: 2px solid ${ringColor};
-                    border-radius: 50%;
-                    width: 38px; height: 38px;
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 20px;
-                    box-shadow: 0 0 12px ${ringColor}99, inset 0 0 8px rgba(0,0,0,0.5);
-                ">${emoji}</div>
-                <div style="
-                    width: 2px; height: 12px;
-                    background: linear-gradient(to bottom, ${ringColor}, transparent);
-                "></div>
-                <div style="
-                    background: rgba(0,0,0,0.8);
-                    color: ${color};
-                    font-size: 9px;
-                    font-family: monospace;
-                    font-weight: bold;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    border: 1px solid ${color}66;
-                    white-space: nowrap;
-                    max-width: 100px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                ">${agent.role.split(' ').slice(0, 2).join(' ')}</div>
-            `;
-            content.addEventListener('mouseenter', () => { content.style.transform = 'scale(1.2)'; });
-            content.addEventListener('mouseleave', () => { content.style.transform = 'scale(1)'; });
-            content.addEventListener('click', () => {
-                setSelectedAgent(agent);
-                setChatMessages([{ role: 'npc', text: `Hey, I'm the ${agent.role}. ${agent.defaultTask || 'Just passing through...'}` }]);
-                map.panTo({ lat: agent.lat, lng: agent.lng });
-            });
-
-            const existing = markersRef.current.get(agent.agentId);
-            if (existing) {
-                existing.position = { lat: agent.lat, lng: agent.lng };
-                existing.content = content;
-            } else {
-                const marker = new google.maps.marker.AdvancedMarkerElement({
-                    map,
-                    position: { lat: agent.lat, lng: agent.lng },
-                    content,
-                    title: agent.role,
-                });
-                markersRef.current.set(agent.agentId, marker);
-            }
-        });
-    }, [agents, mapsLoaded]);
-
-    // Send a chat message
+    // Send chat message to Gemini
     const sendMessage = async () => {
         if (!inputText.trim() || !selectedAgent || isSending) return;
         const userText = inputText.trim();
         setInputText('');
-        const newUserMsg: ChatMessage = { role: 'user', text: userText };
-        setChatMessages(prev => [...prev, newUserMsg]);
+        const newMsg: ChatMessage = { role: 'user', text: userText };
+        setChatMessages(prev => [...prev, newMsg]);
         setIsSending(true);
-
         try {
             const res = await fetch('/api/chat', {
                 method: 'POST',
@@ -231,52 +217,58 @@ export default function ExplorePage() {
                 body: JSON.stringify({
                     agentRole: selectedAgent.role,
                     userMessage: userText,
-                    conversationHistory: [...chatMessages, newUserMsg],
-                    agentSentiment: selectedAgent.sentimentScore || 0,
+                    conversationHistory: [...chatMessages, newMsg],
+                    agentSentiment: selectedAgent.sentimentScore,
                     agentTask: selectedAgent.defaultTask,
-                })
+                }),
             });
             const data = await res.json();
-            setChatMessages(prev => [...prev, { role: 'npc', text: data.reply }]);
+            setChatMessages(prev => [...prev, { role: 'npc', text: data.reply || '...' }]);
         } catch {
-            setChatMessages(prev => [...prev, { role: 'npc', text: `*${selectedAgent.role} disappears into the crowd...*` }]);
+            setChatMessages(prev => [...prev, { role: 'npc', text: '*...static...*' }]);
         } finally {
             setIsSending(false);
         }
     };
 
-    const moodColor = globalMood > 0.1 ? 'text-emerald-400' : globalMood < -0.1 ? 'text-rose-400' : 'text-amber-400';
-    const { emoji: selEmoji, color: selColor } = selectedAgent ? getAgentEmoji(selectedAgent.role) : { emoji: '🧍', color: '#60a5fa' };
+    const moodColor = globalMood > 0.1 ? '#22c55e' : globalMood < -0.1 ? '#ef4444' : '#f59e0b';
 
     return (
-        <div className="w-full h-screen bg-black relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-            {/* 3D Google Map */}
-            <div ref={mapRef} className="absolute inset-0 w-full h-full" />
+        <div className="w-full h-screen bg-black relative overflow-hidden select-none" style={{ fontFamily: "'Inter',sans-serif" }}>
 
-            {/* Loading overlay */}
-            {!mapsLoaded && (
-                <div className="absolute inset-0 bg-black flex items-center justify-center z-50">
-                    <div className="text-center">
-                        <div className="w-12 h-12 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                        <div className="text-gray-400 font-mono text-sm">Loading 3D City...</div>
-                    </div>
+            {/* 3D Map container */}
+            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+
+            {/* Loading / Error */}
+            {!loaded && !loadError && (
+                <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-50">
+                    <div className="w-10 h-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
+                    <div className="text-gray-400 font-mono text-sm">Loading Photorealistic 3D City...</div>
+                </div>
+            )}
+            {loadError && (
+                <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-50 p-8 text-center">
+                    <div className="text-4xl mb-4">⚠️</div>
+                    <div className="text-white font-bold mb-2">Map3D Error</div>
+                    <div className="text-gray-400 text-sm font-mono">{loadError}</div>
+                    <div className="text-gray-600 text-xs mt-4">The Maps3D API requires the API key to have Map3D/Photorealistic tiles enabled in GCP Console.</div>
                 </div>
             )}
 
             {/* Top HUD */}
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-20 pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between z-20 pointer-events-none">
                 <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-4 py-2">
-                    <div className="text-[10px] text-gray-500 uppercase tracking-widest">PROJECT METROPOLIS</div>
-                    <div className="text-xs text-gray-300 font-mono">3D EXPLORE MODE • TIMES SQUARE, NYC</div>
+                    <div className="text-[9px] text-gray-500 uppercase tracking-widest">METROPOLIS · 3D EXPLORE</div>
+                    <div className="text-xs text-gray-200 font-mono">Times Square, NYC</div>
                 </div>
-                <div className="flex gap-3 pointer-events-auto">
-                    <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-4 py-2 text-center">
-                        <div className="text-[9px] text-gray-500 uppercase tracking-widest">Entities</div>
-                        <div className="text-lg font-black text-white font-mono">{agents.length}</div>
+                <div className="flex gap-2 pointer-events-auto">
+                    <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-3 py-2 text-center">
+                        <div className="text-[9px] text-gray-500">Entities</div>
+                        <div className="text-base font-black text-white font-mono">{allAgents.length}</div>
                     </div>
-                    <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-4 py-2 text-center">
-                        <div className="text-[9px] text-gray-500 uppercase tracking-widest">Global Mood</div>
-                        <div className={`text-lg font-black font-mono ${moodColor}`}>
+                    <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-3 py-2 text-center">
+                        <div className="text-[9px] text-gray-500">Global Mood</div>
+                        <div className="text-base font-black font-mono" style={{ color: moodColor }}>
                             {globalMood > 0 ? '+' : ''}{globalMood.toFixed(2)}
                         </div>
                     </div>
@@ -285,26 +277,23 @@ export default function ExplorePage() {
 
             {/* Hint */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-                <div className="bg-black/80 backdrop-blur border border-gray-700 rounded-full px-6 py-2 text-[11px] text-gray-400 tracking-wider">
-                    🗺 Drag to explore • Click an agent emoji to talk
+                <div className="bg-black/80 backdrop-blur border border-gray-700 rounded-full px-5 py-1.5 text-[11px] text-gray-400">
+                    🌆 Drag to fly around · Click an agent to talk
                 </div>
             </div>
 
-            {/* God Mode Panel */}
+            {/* God Mode toggle */}
             <div className="absolute right-4 top-20 z-30">
-                <button
-                    onClick={() => setGodMode(g => !g)}
-                    className={`px-3 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${godMode ? 'bg-violet-600 border-violet-400 text-white' : 'bg-black/80 border-gray-700 text-gray-400 hover:border-violet-500'}`}
-                >
+                <button onClick={() => setGodMode(g => !g)}
+                    className={`px-3 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${godMode ? 'bg-violet-600 border-violet-400 text-white' : 'bg-black/80 border-gray-700 text-gray-400 hover:border-violet-500'}`}>
                     ⚡ God Mode
                 </button>
-
                 {godMode && (
                     <div className="mt-2 bg-black/95 backdrop-blur border border-violet-800 rounded-xl p-4 w-56 space-y-4">
                         <div className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">World Controls</div>
                         <div>
                             <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                                <span>🌡 Temperature</span>
+                                <span>🌡 Temp</span>
                                 <span className="text-white font-mono">{worldTemp}°C</span>
                             </div>
                             <input type="range" min={-10} max={40} value={worldTemp}
@@ -315,45 +304,28 @@ export default function ExplorePage() {
                             </div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-gray-400 mb-2">🎭 Force Global Vibe</div>
+                            <div className="text-[10px] text-gray-400 mb-2">🎭 Broadcast Vibe</div>
                             <div className="flex gap-2">
                                 <button className="flex-1 py-1 bg-emerald-900 border border-emerald-600 text-emerald-400 text-[10px] rounded hover:bg-emerald-800 transition"
-                                    onClick={async () => {
-                                        for (const a of agents.slice(0, 3)) {
-                                            await fetch('/api/orchestrator', {
-                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ agentId: a.agentId, lat: a.lat, lng: a.lng, defaultTask: 'Spread joy and positivity!' })
-                                            }).catch(() => { });
-                                        }
-                                    }}>✨ Positive</button>
+                                    onClick={() => setChatMessages(m => [...m, { role: 'npc', text: '✨ A wave of positivity spreads through the city!' }])}>
+                                    ✨ Positive
+                                </button>
                                 <button className="flex-1 py-1 bg-rose-900 border border-rose-600 text-rose-400 text-[10px] rounded hover:bg-rose-800 transition"
-                                    onClick={async () => {
-                                        for (const a of agents.slice(0, 3)) {
-                                            await fetch('/api/orchestrator', {
-                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ agentId: a.agentId, lat: a.lat, lng: a.lng, defaultTask: 'Something terrible just happened nearby.' })
-                                            }).catch(() => { });
-                                        }
-                                    }}>💀 Chaos</button>
+                                    onClick={() => setChatMessages(m => [...m, { role: 'npc', text: '💀 Chaos energy ripples through the streets...' }])}>
+                                    💀 Chaos
+                                </button>
                             </div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-gray-400 mb-2">📡 Active Agents</div>
-                            <div className="space-y-1 max-h-40 overflow-y-auto">
-                                {agents.slice(0, 10).map(a => {
-                                    const { emoji, color } = getAgentEmoji(a.role);
-                                    return (
-                                        <button key={a.agentId} onClick={() => {
-                                            setSelectedAgent(a);
-                                            setChatMessages([{ role: 'npc', text: `Hey, I'm the ${a.role}.` }]);
-                                            googleMapRef.current?.panTo({ lat: a.lat, lng: a.lng });
-                                        }} className="w-full flex items-center gap-2 text-[9px] hover:bg-white/5 rounded px-1 py-0.5 transition text-left">
-                                            <span style={{ color }}>{emoji}</span>
-                                            <span className="text-gray-400 truncate">{a.role}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <div className="text-[10px] text-gray-400 mb-1">📡 Quick Select</div>
+                            {DEMO_AGENTS.map(a => (
+                                <button key={a.agentId}
+                                    onClick={() => { setSelectedAgent(a); setChatMessages([{ role: 'npc', text: `Hey, I'm the ${a.role}. ${a.defaultTask}` }]); }}
+                                    className="w-full flex items-center gap-2 text-[9px] hover:bg-white/5 rounded px-1 py-0.5 transition text-left">
+                                    <span>{a.emoji}</span>
+                                    <span className="text-gray-400 truncate" style={{ color: a.color }}>{a.role}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -362,46 +334,44 @@ export default function ExplorePage() {
             {/* Chat Panel */}
             {selectedAgent && (
                 <div className="absolute left-4 bottom-16 z-30 w-80">
-                    <div className="bg-gray-950/95 backdrop-blur border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="bg-gray-950/97 backdrop-blur border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
                         <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-black/60">
                             <div className="flex items-center gap-2">
-                                <span className="text-2xl">{selEmoji}</span>
+                                <span className="text-2xl">{selectedAgent.emoji}</span>
                                 <div>
-                                    <div className="text-white font-bold text-xs" style={{ color: selColor }}>{selectedAgent.role}</div>
+                                    <div className="font-bold text-xs" style={{ color: selectedAgent.color }}>{selectedAgent.role}</div>
                                     <div className="text-[9px] text-gray-500">
-                                        Vibe: <span className={selectedAgent.sentimentScore > 0 ? 'text-emerald-400' : selectedAgent.sentimentScore < 0 ? 'text-rose-400' : 'text-amber-400'}>
-                                            {(selectedAgent.sentimentScore || 0).toFixed(2)}
+                                        Vibe: <span style={{ color: selectedAgent.sentimentScore > 0 ? '#22c55e' : '#ef4444' }}>
+                                            {selectedAgent.sentimentScore.toFixed(2)}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedAgent(null)} className="text-gray-600 hover:text-white text-lg leading-none">✕</button>
+                            <button onClick={() => setSelectedAgent(null)} className="text-gray-600 hover:text-white text-base">✕</button>
                         </div>
-
-                        <div className="h-48 overflow-y-auto p-3 space-y-2">
+                        <div className="h-52 overflow-y-auto p-3 space-y-2">
                             {chatMessages.map((msg, i) => (
                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs ${msg.role === 'user' ? 'bg-sky-600 text-white' : 'bg-gray-800 text-gray-200'}`}>
+                                    <div className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs leading-relaxed ${msg.role === 'user' ? 'bg-sky-600 text-white' : 'bg-gray-800 text-gray-200'}`}>
                                         {msg.text}
                                     </div>
                                 </div>
                             ))}
                             {isSending && (
                                 <div className="flex justify-start">
-                                    <div className="bg-gray-800 rounded-xl px-3 py-1.5 text-gray-400 text-[10px] font-mono animate-pulse">typing...</div>
+                                    <div className="bg-gray-800 rounded-xl px-3 py-1.5 text-[10px] text-gray-400 font-mono animate-pulse">
+                                        {selectedAgent.emoji} thinking...
+                                    </div>
                                 </div>
                             )}
                         </div>
-
                         <div className="p-2 border-t border-gray-800 flex gap-2">
-                            <input
-                                type="text" value={inputText}
+                            <input type="text" value={inputText}
                                 onChange={e => setInputText(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                                placeholder="Shift their vibe..."
+                                placeholder={`Talk to the ${selectedAgent.role.split(' ')[0]}...`}
                                 autoFocus
-                                className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-sky-500 transition"
-                            />
+                                className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-sky-500 transition" />
                             <button onClick={sendMessage} disabled={isSending}
                                 className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors">
                                 Send
