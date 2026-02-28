@@ -14,7 +14,7 @@ async function simulateMovement() {
         currentLng += (Math.random() - 0.5) * 0.001;
 
         try {
-            const res = await fetch('http://localhost:3000/api/orchestrator', {
+            const res = await fetch('http://localhost:3002/api/orchestrator', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -31,7 +31,7 @@ async function simulateMovement() {
         } catch (e) {
             console.error('Failed to update orchestrator. Server might be offline (simulating durable kill).', e.message);
         }
-    }, 3000); // Ping every 3 seconds
+    }, 3002); // Ping every 3 seconds
 }
 
 simulateMovement();

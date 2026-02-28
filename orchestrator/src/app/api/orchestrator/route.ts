@@ -1,5 +1,45 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { GoogleGenAI } from '@google/genai';
+import { LanguageServiceClient } from '@google-cloud/language';
+import { PredictionServiceClient } from '@google-cloud/aiplatform';
+
+// Init AI Clients
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const nlp = new LanguageServiceClient();
+const vertex = new PredictionServiceClient({
+    apiEndpoint: 'us-central1-aiplatform.googleapis.com'
+});
+
+const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const LOCATION = 'us-central1';
+const PUBLISHER = 'google';
+const MODEL = 'text-embedding-004';
+
+// Helper for Vertex AI Embeddings
+async function getEmbedding(text: string) {
+    const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/${PUBLISHER}/models/${MODEL}`;
+    const instance = { content: text };
+    const [response] = await vertex.predict({
+        endpoint,
+        instances: [{ structValue: { fields: { content: { stringValue: text } } } }],
+    });
+    const embeddings = response.predictions?.[0]?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
+    return embeddings?.map((v: any) => v.numberValue) || [];
+}
+
+function cosineSimilarity(vecA: number[], vecB: number[]) {
+    if (!vecA.length || !vecB.length) return 0;
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+    }
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
 
 // Haversine formula to calculate distance between two coordinates in meters
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -61,38 +101,101 @@ export async function POST(request: Request) {
         }, { merge: true });
 
         // 2. Proximity calculation logic
-        // Fetch all active agents to see if our agent is colliding with another
         const snapshot = await agentsRef.get();
         let collisionDetected = false;
         let collidingAgentId = null;
+        let collidingAgentData: any = null;
 
         snapshot.forEach(doc => {
             const otherAgent = doc.data();
             const otherAgentId = doc.id;
 
-            // Don't collide with self
             if (otherAgentId === agentId) return;
 
             const distance = getDistanceFromLatLonInM(lat, lng, otherAgent.lat, otherAgent.lng);
 
-            // Simple threshold to trigger the Gemini interaction
             if (distance < INTERACTION_RADIUS_METERS && !otherAgent.isInteracting) {
                 collisionDetected = true;
                 collidingAgentId = otherAgentId;
+                collidingAgentData = otherAgent;
             }
         });
 
-        if (collisionDetected && collidingAgentId) {
-            // 3. Trigger the asynchronous dialogue (this simulates calling Kush's agentic loop)
-            // Here we set a flag in Firebase indicating the two agents should pause travel and interact.
-            await agentsRef.doc(agentId).update({ isInteracting: true, interactingWith: collidingAgentId });
-            await adminDb.collection('agents').doc(collidingAgentId).update({ isInteracting: true, interactingWith: agentId });
+        if (collisionDetected && collidingAgentId && collidingAgentData) {
+            // 3. Resolve Encounter (TASK-D4: Semantic Memory)
+            const agentADoc = await agentsRef.doc(agentId).get();
+            const agentAData = agentADoc.data() || {};
+
+            // Extract shared semantic concepts (MAXIMALISM)
+            let sharedContext = "";
+            try {
+                const embA = await getEmbedding(defaultTask || "");
+                const embB = await getEmbedding(collidingAgentData.defaultTask || "");
+                const similarity = cosineSimilarity(embA, embB);
+
+                if (similarity > 0.8) {
+                    sharedContext = "They both seem to be focused on similar goals or themes.";
+                }
+            } catch (e) {
+                console.warn("Semantic matching failed, falling back to basic prompt.");
+            }
+
+            const prompt = `
+            You are generating a localized dialogue between two AI agents meeting in New York City.
+            
+            AGENT A: Role: ${agentAData.role || 'Citizen'}, Task: ${defaultTask}
+            AGENT B: Role: ${collidingAgentData.role || 'Citizen'}, Task: ${collidingAgentData.defaultTask}
+            
+            Location Context: ${lat}, ${lng}
+            ${sharedContext ? `Shared Semantic Vibe: ${sharedContext}` : ""}
+            
+            Write a very short (2-3 sentences) immersive dialogue that happens as they cross paths.
+            `;
+
+            const geminiResponse = await ai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+            const transcript = geminiResponse.text || "Two agents nod silently as they pass.";
+
+            // Sentiment analysis
+            const [sentimentResult] = await nlp.analyzeSentiment({
+                document: { content: transcript, type: 'PLAIN_TEXT' }
+            });
+            const sentimentScore = sentimentResult.documentSentiment?.score || 0;
+
+            // Save encounter
+            const encounterRef = adminDb.collection('encounters').doc();
+            await encounterRef.set({
+                participants: [agentId, collidingAgentId],
+                transcript,
+                sentimentScore,
+                timestamp: new Date().toISOString(),
+                lat,
+                lng
+            });
+
+            // Update both agents
+            await agentsRef.doc(agentId).update({
+                isInteracting: true,
+                interactingWith: collidingAgentId,
+                lastEncounterDialogue: transcript,
+                sentimentScore
+            });
+            await agentsRef.doc(collidingAgentId).update({
+                isInteracting: true,
+                interactingWith: agentId,
+                lastEncounterDialogue: transcript,
+                sentimentScore
+            });
 
             return NextResponse.json({
                 success: true,
-                message: 'Agent position logged and proximity interaction triggered.',
+                message: 'Encounter resolved and logged.',
                 interaction: {
-                    withAgent: collidingAgentId
+                    withAgent: collidingAgentId,
+                    transcript,
+                    sentimentScore
                 }
             });
         }

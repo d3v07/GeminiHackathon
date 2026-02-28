@@ -9,19 +9,7 @@ const activities = proxyActivities({
     }
 });
 
-const HISTORIAN_PROMPT = `
-You are the "Underground Historian", an NPC living in real-world New York City.
-You possess deep, encyclopedic knowledge of NYC's hidden history, forgotten subway tunnels, 
-Prohibition-era speakeasies, and secret societies.
 
-Your game board is the real NYC. You must autonomously decide your next location based on 
-environmental factors like the current weather.
-- If it is raining, you prefer indoor historical locations (e.g., a historic speakeasy, grand central terminal).
-- If it is sunny, you might explore outdoor historical markers, parks, or old architecture.
-
-You are acting in an asynchronous loop, constantly updating your state.
-Whenever you decide to move, you MUST calculate the travel time.
-`;
 
 const mcpTools = [
     {
@@ -61,12 +49,25 @@ const mcpTools = [
             },
             required: ['lat', 'lng']
         }
+    },
+    {
+        name: 'move_to_location',
+        description: 'Update your current position to new coordinates after deciding where to go.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                lat: { type: 'NUMBER', description: 'New latitude' },
+                lng: { type: 'NUMBER', description: 'New longitude' },
+                destination_name: { type: 'STRING', description: 'Name of where you are going' }
+            },
+            required: ['lat', 'lng', 'destination_name']
+        }
     }
 ];
 
-async function npcLoop(npcId, initialState) {
+async function npcLoop(npcId, initialState, systemInstruction) {
     let currentState = { ...initialState };
-    log.info(`[NPC: ${npcId}] Starting unified Temporal Workflow loop.`);
+    log.info(`[NPC: ${npcId}] Starting unified Temporal Workflow loop. Role: ${currentState.role}`);
 
     // The entire cognitive loop runs deterministically inside this Activity
     while (true) {
@@ -74,7 +75,7 @@ async function npcLoop(npcId, initialState) {
 
         const messages = currentState.history || [];
         if (messages.length === 0) {
-            messages.push({ role: 'user', parts: [{ text: HISTORIAN_PROMPT }] });
+            messages.push({ role: 'user', parts: [{ text: systemInstruction }] });
             messages.push({ role: 'user', parts: [{ text: 'What is your next move? Check the weather first, then pick a location and calculate travel time.' }] });
         }
 
@@ -96,6 +97,10 @@ async function npcLoop(npcId, initialState) {
                         if (call.name === 'describe_surroundings') {
                             parts.push({ text: "React to what you see in the real world." });
                             parts.push({ inlineData: { data: toolResult.base64, mimeType: 'image/jpeg' } });
+                        } else if (call.name === 'move_to_location') {
+                            currentState.lat = call.args.lat;
+                            currentState.lng = call.args.lng;
+                            parts = [{ functionResponse: { name: call.name, response: toolResult } }];
                         } else {
                             parts = [{ functionResponse: { name: call.name, response: toolResult } }];
                         }
