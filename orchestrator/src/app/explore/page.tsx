@@ -3,41 +3,40 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 // ------------------------------------------------------------------
-// 4 hardcoded showcase agents always visible and spread around
-// Times Square / Herald Square / Bryant Park / Penn Station area
+// 4 fixed demo agents around Times Square (with known GPS coords)
 // ------------------------------------------------------------------
 const DEMO_AGENTS = [
     {
         agentId: 'demo-jazz',
         role: 'Harlem Jazz Musician',
-        lat: 40.7580, lng: -73.9855, // Times Square center
+        lat: 40.7589, lng: -73.9851,
         sentimentScore: 0.6,
         emoji: '🎷', color: '#3b82f6',
-        defaultTask: 'Busking outside the TKTS booth, looking for inspiration in the chaos of Times Square.',
+        defaultTask: 'Busking outside the TKTS booth, riding the energy of Times Square.',
     },
     {
         agentId: 'demo-broker',
         role: 'Stressed Wall Street Broker',
-        lat: 40.7566, lng: -73.9903, // 7th Ave south
+        lat: 40.7572, lng: -73.9877,
         sentimentScore: -0.4,
         emoji: '💼', color: '#f59e0b',
-        defaultTask: 'Just closed a disastrous short position on NVDA. Needs coffee. Desperately.',
+        defaultTask: 'Just lost $200K on a bad NVDA short. Desperate for coffee and sanity.',
     },
     {
         agentId: 'demo-rogue',
         role: 'Rogue AI Terminal',
-        lat: 40.7600, lng: -73.9830, // 46th & 8th
+        lat: 40.7605, lng: -73.9838,
         sentimentScore: 0.1,
         emoji: '🤖', color: '#06b6d4',
-        defaultTask: 'Scanning human emotional patterns from an abandoned kiosk. Logging data points.',
+        defaultTask: 'Scanning human emotional biometrics from a broken ATM kiosk near 46th.',
     },
     {
         agentId: 'demo-socialite',
         role: 'High Society Socialite',
-        lat: 40.7552, lng: -73.9820, // 44th & 8th
+        lat: 40.7561, lng: -73.9828,
         sentimentScore: 0.8,
         emoji: '💅', color: '#e879f9',
-        defaultTask: 'Just finished a ghastly Broadway show. Looking for a proper restaurant.',
+        defaultTask: 'Leaving a disastrous Broadway show, hunting for a proper sushi restaurant.',
     },
 ];
 
@@ -54,12 +53,31 @@ interface Agent {
 
 interface ChatMessage { role: 'user' | 'npc'; text: string; }
 
-export default function ExplorePage() {
-    const mapContainerRef = useRef<HTMLDivElement>(null);
-    const map3dRef = useRef<HTMLElement | null>(null);
-    const markerRefs = useRef<Map<string, HTMLElement>>(new Map());
+// Calculate compass bearing between two GPS points
+function getBearing(fromLat: number, fromLng: number, toLat: number, toLng: number): number {
+    const dLng = (toLng - fromLng) * Math.PI / 180;
+    const lat1 = fromLat * Math.PI / 180;
+    const lat2 = toLat * Math.PI / 180;
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+}
 
-    const [allAgents, setAllAgents] = useState<Agent[]>(DEMO_AGENTS);
+function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ------------------------------------------------------------------
+// Main Component
+// ------------------------------------------------------------------
+export default function ExplorePage() {
+    const svContainerRef = useRef<HTMLDivElement>(null);
+    const panoramaRef = useRef<google.maps.StreetViewPanorama | null>(null);
+    const [agents, setAgents] = useState<Agent[]>(DEMO_AGENTS);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
@@ -67,148 +85,108 @@ export default function ExplorePage() {
     const [godMode, setGodMode] = useState(false);
     const [worldTemp, setWorldTemp] = useState(20);
     const [globalMood, setGlobalMood] = useState(0);
-    const [loaded, setLoaded] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const [mapsLoaded, setMapsLoaded] = useState(false);
+    // Panorama heading (degrees from north) — used to position agent overlays
+    const [panoHeading, setPanoHeading] = useState(165);
+    const [panoPitch, setPanoPitch] = useState(0);
+    // Current pano center lat/lng
+    const panoCenter = useRef({ lat: 40.7580, lng: -73.9855 });
 
-    // Load Google Maps alpha library for Map3DElement
+    // ── Load Google Maps JS API ──────────────────────────────────
     useEffect(() => {
-        const loadMapsAPI = async () => {
-            try {
-                // @ts-ignore
-                window.__mapsCallback = () => setLoaded(true);
-                const script = document.createElement('script');
-                script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=maps3d&v=alpha&callback=__mapsCallback`;
-                script.async = true;
-                script.onerror = () => setLoadError('Failed to load Google Maps API');
-                document.head.appendChild(script);
-            } catch (e) {
-                setLoadError('Could not initialize map');
-            }
-        };
-        loadMapsAPI();
+        if (typeof window === 'undefined') return;
+        if ((window as Window & { google?: typeof google }).google?.maps) { setMapsLoaded(true); return; }
+        const cb = '__mapsReady_sv';
+        (window as Window & Record<string, unknown>)[cb] = () => setMapsLoaded(true);
+        const s = document.createElement('script');
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=${cb}&v=weekly`;
+        s.async = true; s.defer = true;
+        document.head.appendChild(s);
     }, []);
 
-    // Initialize Map3DElement after API loads
+    // ── Initialize Street View Panorama ─────────────────────────
     useEffect(() => {
-        if (!loaded || !mapContainerRef.current) return;
+        if (!mapsLoaded || !svContainerRef.current || panoramaRef.current) return;
 
-        try {
-            // @ts-ignore — maps3d is alpha API
-            const map3d = new google.maps.maps3d.Map3DElement({
-                center: { lat: 40.7580, lng: -73.9870, altitude: 200 },
-                range: 600,
-                tilt: 70,
-                heading: 330,
-            });
+        const pano = new google.maps.StreetViewPanorama(svContainerRef.current, {
+            position: { lat: 40.7580, lng: -73.9855 }, // Times Square
+            pov: { heading: 165, pitch: 0 },
+            zoom: 0,
+            addressControl: false,
+            fullscreenControl: false,
+            motionTrackingControl: false,
+            zoomControl: false,
+            linksControl: true,
+            panControl: false,
+            enableCloseButton: false,
+            showRoadLabels: false,
+        });
+        panoramaRef.current = pano;
 
-            map3d.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;';
-            mapContainerRef.current.appendChild(map3d);
-            map3dRef.current = map3d;
-
-            // Add agent markers
-            allAgents.forEach(agent => addMarker3D(agent, map3d));
-
-            setLoaded(true);
-        } catch (e) {
-            console.error(e);
-            setLoadError('Map3D API unavailable. Check API key has Map3D enabled.');
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loaded]);
-
-    const addMarker3D = (agent: Agent, map3d: HTMLElement) => {
-        // @ts-ignore
-        const marker = new google.maps.maps3d.Marker3DElement({
-            position: { lat: agent.lat, lng: agent.lng, altitude: 15 },
-            altitudeMode: 'RELATIVE_TO_GROUND',
-            extruded: true,
+        // Listen for POV changes to reposition agent overlays
+        pano.addListener('pov_changed', () => {
+            const pov = pano.getPov();
+            setPanoHeading(pov.heading);
+            setPanoPitch(pov.pitch);
         });
 
-        const sentRingColor = agent.sentimentScore > 0.1 ? '#22c55e' : agent.sentimentScore < -0.1 ? '#ef4444' : '#f59e0b';
-        const content = document.createElement('div');
-        content.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;';
-        content.innerHTML = `
-            <div style="
-                background: rgba(0,0,0,0.85);
-                border: 2.5px solid ${sentRingColor};
-                border-radius: 50%;
-                width: 44px; height: 44px;
-                display: flex; align-items: center; justify-content: center;
-                font-size: 24px;
-                box-shadow: 0 0 16px ${sentRingColor}99;
-            ">${agent.emoji}</div>
-            <div style="
-                background: rgba(0,0,0,0.8); color: ${agent.color};
-                font-size: 9px; font-family: monospace; font-weight: bold;
-                padding: 2px 6px; border-radius: 4px;
-                border: 1px solid ${agent.color}66; margin-top: 2px;
-                white-space: nowrap;
-            ">${agent.role.split(' ').slice(0, 3).join(' ')}</div>
-        `;
-        content.addEventListener('click', () => {
-            setSelectedAgent(agent);
-            setChatMessages([{ role: 'npc', text: `Hey! I'm the ${agent.role}. ${agent.defaultTask}` }]);
+        // Update center on navigation
+        pano.addListener('position_changed', () => {
+            const pos = pano.getPosition();
+            if (pos) panoCenter.current = { lat: pos.lat(), lng: pos.lng() };
         });
+    }, [mapsLoaded]);
 
-        // @ts-ignore
-        marker.append(content);
-        map3d.append(marker);
-        markerRefs.current.set(agent.agentId, marker as HTMLElement);
-    };
-
-    // Fetch live Firestore agents (spread them out if clustered)
-    const fetchLiveAgents = useCallback(async () => {
+    // ── Fetch live agents ────────────────────────────────────────
+    const fetchAgents = useCallback(async () => {
         try {
             const res = await fetch('/api/state');
             const data = await res.json();
-            if (data.agents && Array.isArray(data.agents)) {
+            if (data.agents?.length) {
                 const emojiMap: Record<string, { e: string; c: string }> = {
-                    'Historian': { e: '🧐', c: '#8b5cf6' }, 'Ghost': { e: '👻', c: '#6b7280' },
-                    'Broker': { e: '💼', c: '#f59e0b' }, 'Jazz': { e: '🎷', c: '#3b82f6' },
-                    'Startup': { e: '🚀', c: '#10b981' }, 'Restaurant': { e: '🍜', c: '#ef4444' },
-                    'Dog': { e: '🐕', c: '#84cc16' }, 'Performer': { e: '🎭', c: '#f43f5e' },
-                    'Rogue': { e: '🤖', c: '#06b6d4' }, 'Tourist': { e: '📸', c: '#a78bfa' },
-                    'Yoga': { e: '🧘', c: '#34d399' }, 'Pizza': { e: '🍕', c: '#fb923c' },
-                    'Sanitation': { e: '🗑️', c: '#78716c' }, 'Socialite': { e: '💅', c: '#e879f9' },
-                    'Pigeon': { e: '🐦', c: '#a3a3a3' },
+                    Historian: { e: '🧐', c: '#8b5cf6' }, Ghost: { e: '👻', c: '#6b7280' },
+                    Broker: { e: '💼', c: '#f59e0b' }, Jazz: { e: '🎷', c: '#3b82f6' },
+                    Startup: { e: '🚀', c: '#10b981' }, Restaurant: { e: '🍜', c: '#ef4444' },
+                    Dog: { e: '🐕', c: '#84cc16' }, Performer: { e: '🎭', c: '#f43f5e' },
+                    Rogue: { e: '🤖', c: '#06b6d4' }, Tourist: { e: '📸', c: '#a78bfa' },
+                    Yoga: { e: '🧘', c: '#34d399' }, Pizza: { e: '🍕', c: '#fb923c' },
+                    Sanitation: { e: '🗑️', c: '#78716c' }, Socialite: { e: '💅', c: '#e879f9' },
+                    Pigeon: { e: '🐦', c: '#a3a3a3' },
                 };
-                const mapped: Agent[] = data.agents.slice(0, 20).map((a: Record<string, unknown>, idx: number) => {
-                    const key = Object.keys(emojiMap).find(k => String(a.role || '').includes(k)) || '';
-                    const info = emojiMap[key] || { e: '🧍', c: '#60a5fa' };
-                    // Spread agents out by a tiny offset if they're very close
-                    const lat = (a.lat as number || 40.758) + Math.sin(idx * 1.3) * 0.001;
-                    const lng = (a.lng as number || -73.985) + Math.cos(idx * 1.7) * 0.001;
+                const live: Agent[] = data.agents.slice(0, 12).map((a: Record<string, unknown>, i: number) => {
+                    const key = Object.keys(emojiMap).find(k => String(a.role).includes(k));
+                    const info = key ? emojiMap[key] : { e: '🧍', c: '#60a5fa' };
                     return {
                         agentId: a.agentId as string,
-                        role: a.role as string || 'Unknown',
-                        lat, lng,
+                        role: a.role as string,
+                        lat: (a.lat as number || 40.758) + Math.sin(i * 1.4) * 0.0009,
+                        lng: (a.lng as number || -73.985) + Math.cos(i * 1.9) * 0.0009,
                         sentimentScore: a.sentimentScore as number || 0,
                         emoji: info.e, color: info.c,
                         defaultTask: a.defaultTask as string || 'Wandering NYC...',
                     };
                 });
-                const avg = mapped.length > 0 ? mapped.reduce((s, a) => s + a.sentimentScore, 0) / mapped.length : 0;
+                const avg = live.reduce((s, a) => s + a.sentimentScore, 0) / live.length;
                 setGlobalMood(avg);
-                setAllAgents([...DEMO_AGENTS, ...mapped.filter(a => !DEMO_AGENTS.find(d => d.agentId === a.agentId))]);
+                setAgents([...DEMO_AGENTS, ...live.filter(a => !DEMO_AGENTS.find(d => d.agentId === a.agentId))]);
             }
-        } catch {
-            // keep demo agents
-        }
+        } catch { /* keep demo agents */ }
     }, []);
 
-    useEffect(() => {
-        fetchLiveAgents();
-        const interval = setInterval(fetchLiveAgents, 8000);
-        return () => clearInterval(interval);
-    }, [fetchLiveAgents]);
+    useEffect(() => { fetchAgents(); const t = setInterval(fetchAgents, 8000); return () => clearInterval(t); }, [fetchAgents]);
 
-    // Send chat message to Gemini
+    // ── Chat ─────────────────────────────────────────────────────
+    const openChat = (agent: Agent) => {
+        setSelectedAgent(agent);
+        setChatMessages([{ role: 'npc', text: `${agent.emoji} Hey! I'm the ${agent.role}. ${agent.defaultTask || ''}` }]);
+    };
+
     const sendMessage = async () => {
         if (!inputText.trim() || !selectedAgent || isSending) return;
         const userText = inputText.trim();
         setInputText('');
-        const newMsg: ChatMessage = { role: 'user', text: userText };
-        setChatMessages(prev => [...prev, newMsg]);
+        const msg: ChatMessage = { role: 'user', text: userText };
+        setChatMessages(p => [...p, msg]);
         setIsSending(true);
         try {
             const res = await fetch('/api/chat', {
@@ -217,113 +195,182 @@ export default function ExplorePage() {
                 body: JSON.stringify({
                     agentRole: selectedAgent.role,
                     userMessage: userText,
-                    conversationHistory: [...chatMessages, newMsg],
+                    conversationHistory: [...chatMessages, msg],
                     agentSentiment: selectedAgent.sentimentScore,
                     agentTask: selectedAgent.defaultTask,
                 }),
             });
             const data = await res.json();
-            setChatMessages(prev => [...prev, { role: 'npc', text: data.reply || '...' }]);
+            setChatMessages(p => [...p, { role: 'npc', text: data.reply || '...' }]);
         } catch {
-            setChatMessages(prev => [...prev, { role: 'npc', text: '*...static...*' }]);
+            setChatMessages(p => [...p, { role: 'npc', text: '*The signal fades into the city noise...*' }]);
         } finally {
             setIsSending(false);
         }
     };
 
+    // ── Project agent GPS → screen position ─────────────────────
+    // Agents within ~150m of the pano center are shown as overlays.
+    // We compute the angular offset from the current heading and
+    // map it to an X position on screen (viewport is ~360° wide).
+    const agentOverlays = agents.map(agent => {
+        const dist = getDistanceMeters(panoCenter.current.lat, panoCenter.current.lng, agent.lat, agent.lng);
+        if (dist > 180) return null; // too far, not shown
+
+        const bearing = getBearing(panoCenter.current.lat, panoCenter.current.lng, agent.lat, agent.lng);
+        let angleDiff = bearing - panoHeading;
+        // Normalize to [-180, 180]
+        while (angleDiff > 180) angleDiff -= 360;
+        while (angleDiff < -180) angleDiff += 360;
+
+        if (Math.abs(angleDiff) > 70) return null; // outside ~140° visible FOV
+
+        // Map angle to horizontal screen percent
+        const xPercent = 50 + (angleDiff / 70) * 50;
+        // Vertical: pitch offset + distance scaling (closer = lower on screen)
+        const distFactor = 1 - Math.min(dist / 180, 1);
+        const yPercent = 55 - panoPitch * 0.8 - distFactor * 15;
+        // Scale avatar by distance (closer = bigger)
+        const scale = 0.6 + distFactor * 0.8;
+
+        return { agent, xPercent, yPercent: Math.max(10, Math.min(85, yPercent)), scale, dist };
+    }).filter(Boolean);
+
     const moodColor = globalMood > 0.1 ? '#22c55e' : globalMood < -0.1 ? '#ef4444' : '#f59e0b';
 
     return (
-        <div className="w-full h-screen bg-black relative overflow-hidden select-none" style={{ fontFamily: "'Inter',sans-serif" }}>
+        <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative', overflow: 'hidden', fontFamily: "'Inter',sans-serif" }}>
 
-            {/* 3D Map container */}
-            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+            {/* ── Live 360° Street View ── */}
+            <div ref={svContainerRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 
-            {/* Loading / Error */}
-            {!loaded && !loadError && (
-                <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-50">
-                    <div className="w-10 h-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
-                    <div className="text-gray-400 font-mono text-sm">Loading Photorealistic 3D City...</div>
-                </div>
-            )}
-            {loadError && (
-                <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-50 p-8 text-center">
-                    <div className="text-4xl mb-4">⚠️</div>
-                    <div className="text-white font-bold mb-2">Map3D Error</div>
-                    <div className="text-gray-400 text-sm font-mono">{loadError}</div>
-                    <div className="text-gray-600 text-xs mt-4">The Maps3D API requires the API key to have Map3D/Photorealistic tiles enabled in GCP Console.</div>
+            {/* Loading overlay */}
+            {!mapsLoaded && (
+                <div style={{ position: 'absolute', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+                    <div style={{ width: 40, height: 40, border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ color: '#6b7280', fontFamily: 'monospace', fontSize: 12, marginTop: 16 }}>Connecting to live street view...</div>
+                    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
                 </div>
             )}
 
-            {/* Top HUD */}
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between z-20 pointer-events-none">
-                <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-4 py-2">
-                    <div className="text-[9px] text-gray-500 uppercase tracking-widest">METROPOLIS · 3D EXPLORE</div>
-                    <div className="text-xs text-gray-200 font-mono">Times Square, NYC</div>
-                </div>
-                <div className="flex gap-2 pointer-events-auto">
-                    <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-3 py-2 text-center">
-                        <div className="text-[9px] text-gray-500">Entities</div>
-                        <div className="text-base font-black text-white font-mono">{allAgents.length}</div>
+            {/* ── Agent Overlays floating in Street View ── */}
+            {mapsLoaded && agentOverlays.map((item) => {
+                if (!item) return null;
+                const { agent, xPercent, yPercent, scale } = item;
+                const sentRing = agent.sentimentScore > 0.1 ? '#22c55e' : agent.sentimentScore < -0.1 ? '#ef4444' : '#f59e0b';
+                const isSelected = selectedAgent?.agentId === agent.agentId;
+                return (
+                    <div
+                        key={agent.agentId}
+                        onClick={() => openChat(agent)}
+                        style={{
+                            position: 'absolute',
+                            left: `${xPercent}%`,
+                            top: `${yPercent}%`,
+                            transform: `translate(-50%, -100%) scale(${scale})`,
+                            zIndex: 25,
+                            cursor: 'pointer',
+                            transition: 'left 0.3s ease, top 0.3s ease',
+                            filter: `drop-shadow(0 4px 16px ${agent.color}88)`,
+                        }}
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            {/* Avatar bubble */}
+                            <div style={{
+                                background: 'rgba(0,0,0,0.88)',
+                                border: `2.5px solid ${isSelected ? '#fff' : sentRing}`,
+                                borderRadius: '50%',
+                                width: 52, height: 52,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 26,
+                                boxShadow: `0 0 20px ${sentRing}99${isSelected ? ', 0 0 0 3px #fff4' : ''}`,
+                                transition: 'all 0.2s',
+                            }}
+                                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.15)')}
+                                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                            >
+                                {agent.emoji}
+                            </div>
+                            {/* Stick body */}
+                            <div style={{ width: 2, height: 18, background: `linear-gradient(to bottom, ${sentRing}, transparent)` }} />
+                            {/* Name tag */}
+                            <div style={{
+                                background: 'rgba(0,0,0,0.85)', color: agent.color,
+                                fontSize: 9, fontFamily: 'monospace', fontWeight: 700,
+                                padding: '2px 8px', borderRadius: 4,
+                                border: `1px solid ${agent.color}55`,
+                                whiteSpace: 'nowrap', maxWidth: 110,
+                                overflow: 'hidden', textOverflow: 'ellipsis',
+                            }}>
+                                {agent.role.split(' ').slice(0, 3).join(' ')}
+                            </div>
+                        </div>
                     </div>
-                    <div className="bg-black/80 backdrop-blur border border-gray-800 rounded-xl px-3 py-2 text-center">
-                        <div className="text-[9px] text-gray-500">Global Mood</div>
-                        <div className="text-base font-black font-mono" style={{ color: moodColor }}>
+                );
+            })}
+
+            {/* ── Top HUD ── */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: 16, display: 'flex', justifyContent: 'space-between', zIndex: 30, pointerEvents: 'none' }}>
+                <div style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)', border: '1px solid #1f2937', borderRadius: 12, padding: '8px 16px' }}>
+                    <div style={{ fontSize: 9, color: '#6b7280', letterSpacing: 2, textTransform: 'uppercase' }}>METROPOLIS · STREET VIEW</div>
+                    <div style={{ fontSize: 11, color: '#e5e7eb', fontFamily: 'monospace' }}>Times Square, NYC · LIVE 360°</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
+                    <div style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)', border: '1px solid #1f2937', borderRadius: 12, padding: '8px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 9, color: '#6b7280' }}>Entities</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'monospace' }}>{agents.length}</div>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)', border: '1px solid #1f2937', borderRadius: 12, padding: '8px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 9, color: '#6b7280' }}>Global Mood</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'monospace', color: moodColor }}>
                             {globalMood > 0 ? '+' : ''}{globalMood.toFixed(2)}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Hint */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-                <div className="bg-black/80 backdrop-blur border border-gray-700 rounded-full px-5 py-1.5 text-[11px] text-gray-400">
-                    🌆 Drag to fly around · Click an agent to talk
+            {/* ── Hint ── */}
+            <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 30, pointerEvents: 'none' }}>
+                <div style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', border: '1px solid #374151', borderRadius: 999, padding: '6px 20px', fontSize: 11, color: '#9ca3af' }}>
+                    🎮 Drag to look around · Click arrows to walk · Click an agent to talk
                 </div>
             </div>
 
-            {/* God Mode toggle */}
-            <div className="absolute right-4 top-20 z-30">
-                <button onClick={() => setGodMode(g => !g)}
-                    className={`px-3 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${godMode ? 'bg-violet-600 border-violet-400 text-white' : 'bg-black/80 border-gray-700 text-gray-400 hover:border-violet-500'}`}>
-                    ⚡ God Mode
-                </button>
+            {/* ── God Mode ── */}
+            <div style={{ position: 'absolute', right: 16, top: 80, zIndex: 35 }}>
+                <button onClick={() => setGodMode(g => !g)} style={{
+                    padding: '8px 12px', borderRadius: 8,
+                    border: `1px solid ${godMode ? '#7c3aed' : '#374151'}`,
+                    background: godMode ? '#7c3aed' : 'rgba(0,0,0,0.85)',
+                    color: godMode ? '#fff' : '#9ca3af',
+                    fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer',
+                }}>⚡ God Mode</button>
+
                 {godMode && (
-                    <div className="mt-2 bg-black/95 backdrop-blur border border-violet-800 rounded-xl p-4 w-56 space-y-4">
-                        <div className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">World Controls</div>
+                    <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.95)', border: '1px solid #4c1d95', borderRadius: 12, padding: 16, width: 230, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', letterSpacing: 2, textTransform: 'uppercase' }}>World Controls</div>
                         <div>
-                            <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                                <span>🌡 Temp</span>
-                                <span className="text-white font-mono">{worldTemp}°C</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>
+                                <span>🌡 Temperature</span><span style={{ color: '#fff', fontFamily: 'monospace' }}>{worldTemp}°C</span>
                             </div>
-                            <input type="range" min={-10} max={40} value={worldTemp}
-                                onChange={e => setWorldTemp(Number(e.target.value))}
-                                className="w-full accent-violet-500 cursor-pointer" />
-                            <div className="text-[9px] text-gray-600 mt-1">
+                            <input type="range" min={-10} max={40} value={worldTemp} onChange={e => setWorldTemp(+e.target.value)} style={{ width: '100%', accentColor: '#7c3aed' }} />
+                            <div style={{ fontSize: 9, color: '#4b5563', marginTop: 3 }}>
                                 {worldTemp < 0 ? '❄️ Freezing' : worldTemp < 15 ? '🌥 Cold' : worldTemp < 28 ? '☀️ Pleasant' : '🔥 Scorching'}
                             </div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-gray-400 mb-2">🎭 Broadcast Vibe</div>
-                            <div className="flex gap-2">
-                                <button className="flex-1 py-1 bg-emerald-900 border border-emerald-600 text-emerald-400 text-[10px] rounded hover:bg-emerald-800 transition"
-                                    onClick={() => setChatMessages(m => [...m, { role: 'npc', text: '✨ A wave of positivity spreads through the city!' }])}>
-                                    ✨ Positive
-                                </button>
-                                <button className="flex-1 py-1 bg-rose-900 border border-rose-600 text-rose-400 text-[10px] rounded hover:bg-rose-800 transition"
-                                    onClick={() => setChatMessages(m => [...m, { role: 'npc', text: '💀 Chaos energy ripples through the streets...' }])}>
-                                    💀 Chaos
-                                </button>
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-[10px] text-gray-400 mb-1">📡 Quick Select</div>
+                            <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6 }}>📡 Teleport to agent</div>
                             {DEMO_AGENTS.map(a => (
-                                <button key={a.agentId}
-                                    onClick={() => { setSelectedAgent(a); setChatMessages([{ role: 'npc', text: `Hey, I'm the ${a.role}. ${a.defaultTask}` }]); }}
-                                    className="w-full flex items-center gap-2 text-[9px] hover:bg-white/5 rounded px-1 py-0.5 transition text-left">
-                                    <span>{a.emoji}</span>
-                                    <span className="text-gray-400 truncate" style={{ color: a.color }}>{a.role}</span>
+                                <button key={a.agentId} onClick={() => {
+                                    panoramaRef.current?.setPosition({ lat: a.lat, lng: a.lng });
+                                    openChat(a);
+                                }} style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, fontSize: 10,
+                                    background: 'transparent', border: 'none', color: a.color,
+                                    cursor: 'pointer', padding: '4px', width: '100%', textAlign: 'left', borderRadius: 4,
+                                }}>
+                                    <span style={{ fontSize: 16 }}>{a.emoji}</span>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.role}</span>
                                 </button>
                             ))}
                         </div>
@@ -331,51 +378,59 @@ export default function ExplorePage() {
                 )}
             </div>
 
-            {/* Chat Panel */}
+            {/* ── Chat Panel ── */}
             {selectedAgent && (
-                <div className="absolute left-4 bottom-16 z-30 w-80">
-                    <div className="bg-gray-950/97 backdrop-blur border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
-                        <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-black/60">
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl">{selectedAgent.emoji}</span>
+                <div style={{ position: 'absolute', left: 16, bottom: 60, zIndex: 40, width: 340 }}>
+                    <div style={{ background: 'rgba(3,7,18,0.96)', border: '1px solid #1f2937', borderRadius: 16, overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.9)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #1f2937', background: 'rgba(0,0,0,0.6)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 30 }}>{selectedAgent.emoji}</span>
                                 <div>
-                                    <div className="font-bold text-xs" style={{ color: selectedAgent.color }}>{selectedAgent.role}</div>
-                                    <div className="text-[9px] text-gray-500">
-                                        Vibe: <span style={{ color: selectedAgent.sentimentScore > 0 ? '#22c55e' : '#ef4444' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: selectedAgent.color }}>{selectedAgent.role}</div>
+                                    <div style={{ fontSize: 9, color: '#4b5563' }}>
+                                        Vibe: <span style={{ color: selectedAgent.sentimentScore > 0 ? '#22c55e' : '#ef4444', fontFamily: 'monospace' }}>
                                             {selectedAgent.sentimentScore.toFixed(2)}
-                                        </span>
+                                        </span> • Street: Times Square
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedAgent(null)} className="text-gray-600 hover:text-white text-base">✕</button>
+                            <button onClick={() => setSelectedAgent(null)} style={{ background: 'none', border: 'none', color: '#4b5563', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
                         </div>
-                        <div className="h-52 overflow-y-auto p-3 space-y-2">
+                        <div style={{ height: 220, overflowY: 'auto', padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {chatMessages.map((msg, i) => (
-                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] rounded-xl px-3 py-1.5 text-xs leading-relaxed ${msg.role === 'user' ? 'bg-sky-600 text-white' : 'bg-gray-800 text-gray-200'}`}>
-                                        {msg.text}
-                                    </div>
+                                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                    <div style={{
+                                        maxWidth: '85%', borderRadius: 12, padding: '8px 12px', fontSize: 13, lineHeight: 1.6,
+                                        background: msg.role === 'user' ? '#0369a1' : '#1f2937',
+                                        color: msg.role === 'user' ? '#e0f2fe' : '#d1d5db',
+                                    }}>{msg.text}</div>
                                 </div>
                             ))}
                             {isSending && (
-                                <div className="flex justify-start">
-                                    <div className="bg-gray-800 rounded-xl px-3 py-1.5 text-[10px] text-gray-400 font-mono animate-pulse">
+                                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                    <div style={{ background: '#111827', borderRadius: 12, padding: '8px 14px', fontSize: 11, color: '#6b7280', fontFamily: 'monospace' }}>
                                         {selectedAgent.emoji} thinking...
                                     </div>
                                 </div>
                             )}
                         </div>
-                        <div className="p-2 border-t border-gray-800 flex gap-2">
-                            <input type="text" value={inputText}
+                        <div style={{ padding: 10, borderTop: '1px solid #1f2937', display: 'flex', gap: 8 }}>
+                            <input
+                                type="text" value={inputText}
                                 onChange={e => setInputText(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                                placeholder={`Talk to the ${selectedAgent.role.split(' ')[0]}...`}
+                                placeholder={`Say something to the ${selectedAgent.role.split(' ')[0]}...`}
                                 autoFocus
-                                className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-sky-500 transition" />
-                            <button onClick={sendMessage} disabled={isSending}
-                                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors">
-                                Send
-                            </button>
+                                style={{
+                                    flex: 1, background: '#0d1117', border: '1px solid #30363d', borderRadius: 12,
+                                    padding: '9px 14px', fontSize: 13, color: '#fff', outline: 'none', fontFamily: 'inherit',
+                                }}
+                            />
+                            <button onClick={sendMessage} disabled={isSending} style={{
+                                padding: '9px 16px', background: isSending ? '#1f2937' : '#0369a1',
+                                border: 'none', borderRadius: 12, color: '#fff', fontSize: 13, fontWeight: 600,
+                                cursor: isSending ? 'default' : 'pointer', transition: 'background 0.2s',
+                            }}>Send</button>
                         </div>
                     </div>
                 </div>
