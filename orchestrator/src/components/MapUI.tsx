@@ -211,7 +211,7 @@ export default function MapUI() {
                     <div className="mt-auto pt-8">
                         <div className="bg-black/40 rounded border border-gray-900 p-3 grid grid-cols-2 gap-4">
                             <div className="flex flex-col gap-0.5">
-                                <span className="text-[8px] text-gray-600 uppercase tracking-widest">Network Tick</span>
+                                <span className="text-[8px] text-gray-600 uppercase tracking-widest">Last State Sync</span>
                                 <span className="text-[10px] font-mono text-gray-400">{new Date(selectedAgent.lastUpdated).toLocaleTimeString()}</span>
                             </div>
                             <div className="flex flex-col gap-0.5">

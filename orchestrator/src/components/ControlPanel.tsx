@@ -27,8 +27,8 @@ export default function ControlPanel({
     // Stats calculations
     const activeAgents = agents.length;
     const totalEncounters = encounters.length;
-    const avgSentiment = encounters.length > 0
-        ? encounters.reduce((acc, curr) => acc + (curr.sentimentScore || 0), 0) / encounters.length
+    const avgSentiment = agents.length > 0
+        ? agents.reduce((acc, curr) => acc + (curr.sentimentScore || 0), 0) / agents.length
         : 0;
 
     const audioQueue = useRef<string[]>([]);
