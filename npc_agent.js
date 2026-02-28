@@ -26,35 +26,35 @@ Whenever you decide to move, you MUST calculate the travel time.
  * Mocking the Google Maps and Weather MCP tool schemas.
  */
 const mcpTools = [
-  {
-      name: 'get_weather_mcp',
-      description: 'Get the current weather for a specific location or coordinates in NYC.',
-      parameters: {
-          type: 'OBJECT',
-          properties: {
-              location: {
-                  type: 'STRING',
-                  description: 'The NYC neighborhood, borough, or coordinates.'
-              }
-          },
-          required: ['location']
-      }
-  },
-  {
-      name: 'calculate_travel_time_mcp',
-      description: 'Calculate travel time between two coordinates in NYC using Google Maps routing.',
-      parameters: {
-          type: 'OBJECT',
-          properties: {
-              origin_lat: { type: 'NUMBER' },
-              origin_lng: { type: 'NUMBER' },
-              dest_lat: { type: 'NUMBER' },
-              dest_lng: { type: 'NUMBER' },
-              mode: { type: 'STRING', enum: ['transit', 'walking', 'driving', 'bicycling'] }
-          },
-          required: ['origin_lat', 'origin_lng', 'dest_lat', 'dest_lng', 'mode']
-      }
-  }
+    {
+        name: 'get_weather_mcp',
+        description: 'Get the current weather for a specific location or coordinates in NYC.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                location: {
+                    type: 'STRING',
+                    description: 'The NYC neighborhood, borough, or coordinates.'
+                }
+            },
+            required: ['location']
+        }
+    },
+    {
+        name: 'calculate_travel_time_mcp',
+        description: 'Calculate travel time between two coordinates in NYC using Google Maps routing.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                origin_lat: { type: 'NUMBER' },
+                origin_lng: { type: 'NUMBER' },
+                dest_lat: { type: 'NUMBER' },
+                dest_lng: { type: 'NUMBER' },
+                mode: { type: 'STRING', enum: ['transit', 'walking', 'driving', 'bicycling'] }
+            },
+            required: ['origin_lat', 'origin_lng', 'dest_lat', 'dest_lng', 'mode']
+        }
+    }
 ];
 
 // Mock tool execution (In a real app, this would call actual MCP servers)
@@ -73,16 +73,16 @@ async function executeToolCall(name, args) {
  */
 async function npcLoop(npcId, currentState) {
     console.log(`[NPC: ${npcId}] Starting loop iteration. Current Location: ${currentState.lat}, ${currentState.lng}`);
-    
+
     const messages = currentState.history || [];
     if (messages.length === 0) {
-        messages.push({ role: 'user', content: HISTORIAN_PROMPT });
-        messages.push({ role: 'user', content: 'What is your next move? Check the weather first, then pick a location and calculate travel time.' });
+        messages.push({ role: 'user', parts: [{ text: HISTORIAN_PROMPT }] });
+        messages.push({ role: 'user', parts: [{ text: 'What is your next move? Check the weather first, then pick a location and calculate travel time.' }] });
     }
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro',
+            model: 'gemini-2.5-pro',
             contents: messages,
             config: {
                 tools: [{ functionDeclarations: mcpTools }]
@@ -92,31 +92,36 @@ async function npcLoop(npcId, currentState) {
         // Add model response to history
         if (response.text) console.log(`[NPC: ${npcId}] Thought: ${response.text}`);
 
+        // Push the model's response back into the messages history exactly as we received it (a Content object)
+        if (response.candidates && response.candidates[0].content) {
+            messages.push(response.candidates[0].content);
+        }
+
         if (response.functionCalls && response.functionCalls.length > 0) {
             for (const call of response.functionCalls) {
                 console.log(`[NPC: ${npcId}] Tool Call -> ${call.name}`, call.args);
-                
+
                 // Strict try/catch for timeouts
                 try {
                     const toolResult = await executeToolCall(call.name, call.args);
                     console.log(`[NPC: ${npcId}] Tool Result ->`, toolResult);
-                    
+
                     messages.push({
-                        role: 'function',
+                        role: 'user', // In @google/genai, function responses are provided with role: user or function depending on API version, usually 'user' handles it well or you use the FunctionResponse objects
                         parts: [{ functionResponse: { name: call.name, response: toolResult } }]
                     });
                 } catch (toolError) {
                     console.error(`[NPC: ${npcId}] Tool execution failed (Timeout/Error):`, toolError);
                     messages.push({
-                        role: 'function',
+                        role: 'user',
                         parts: [{ functionResponse: { name: call.name, response: { error: 'API Timeout or Error' } } }]
                     });
                 }
             }
-            
+
             // Re-prompt the model with the tool results to get the final decision
             const finalResponse = await ai.models.generateContent({
-                model: 'gemini-3.1-pro',
+                model: 'gemini-2.5-pro',
                 contents: messages,
                 config: {
                     tools: [{ functionDeclarations: mcpTools }]
@@ -129,7 +134,7 @@ async function npcLoop(npcId, currentState) {
     } catch (e) {
         console.error(`[NPC: ${npcId}] Critical Loop Error:`, e);
     }
-    
+
     return currentState;
 }
 
@@ -160,7 +165,7 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro',
+            model: 'gemini-2.5-pro',
             contents: { role: 'user', parts: [{ text: collisionPrompt }] }
         });
 
@@ -182,7 +187,7 @@ if (require.main === module) {
             role: "Underground Historian",
             history: []
         };
-        
+
         console.log("=== RUNNING NPC LOOP ===");
         historianState = await npcLoop("npc_hero_1", historianState);
 
@@ -190,9 +195,9 @@ if (require.main === module) {
         const ghostState = {
             lat: 40.7580, lng: -73.9855,
             role: "1920s Prohibition Ghost",
-            history: [{ role: 'system', content: 'Felt a draft near the old speakeasy entrance.' }]
+            history: [{ role: 'user', parts: [{ text: 'System feeling: Felt a draft near the old speakeasy entrance.' }] }]
         };
-        
+
         await trigger_multi_agent_interaction(historianState, ghostState);
     })();
 }
