@@ -28,10 +28,11 @@ export default function MapUI() {
                 const data = await res.json();
                 if (isMounted && data.agents) {
                     setAgents(data.agents);
-                    if (selectedAgent) {
-                        const updated = data.agents.find((a: any) => a.id === selectedAgent.id);
-                        if (updated) setSelectedAgent(updated);
-                    }
+                    setSelectedAgent((prev: any) => {
+                        if (!prev) return prev;
+                        const updated = data.agents.find((a: any) => a.id === prev.id);
+                        return updated || prev;
+                    });
                 }
             } catch (e) {
                 console.error("Poll error:", e);
@@ -45,7 +46,7 @@ export default function MapUI() {
             isMounted = false;
             clearInterval(interval);
         };
-    }, [selectedAgent]);
+    }, []);
 
     const getMoodColor = (score: number = 0) => {
         if (score > 0.3) return 'bg-emerald-500'; // Happy
@@ -91,7 +92,7 @@ export default function MapUI() {
                         {agents.map((agent) => (
                             <AdvancedMarker
                                 key={agent.id}
-                                position={{ lat: agent.lat, lng: agent.lng }}
+                                position={{ lat: Number(agent.lat), lng: Number(agent.lng) }}
                                 onClick={() => setSelectedAgent(agent)}
                                 zIndex={agent.isInteracting ? 100 : 1}
                             >
@@ -137,22 +138,18 @@ export default function MapUI() {
 
                     {/* Street View Preview */}
                     <div className="mb-8 rounded-xl overflow-hidden border border-gray-800/80 aspect-[16/10] bg-[#050505] group relative shadow-inner">
-                        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-                            <img
-                                src={`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${selectedAgent.lat},${selectedAgent.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                                alt="Street View"
-                                className="w-full h-full object-cover grayscale mix-blend-luminosity opacity-60 group-hover:opacity-100 group-hover:grayscale-0 group-hover:mix-blend-normal transition-all duration-1000"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-900 text-[10px] text-rose-500 font-mono">MAP API KEY MISSING</div>
-                        )}
+                        <img
+                            src={`/api/streetview?lat=${selectedAgent.lat}&lng=${selectedAgent.lng}`}
+                            alt="Street View"
+                            className="w-full h-full object-cover grayscale mix-blend-luminosity opacity-60 group-hover:opacity-100 group-hover:grayscale-0 group-hover:mix-blend-normal transition-all duration-1000"
+                        />
                         <div className="absolute inset-0 border border-white/5 rounded-xl pointer-events-none"></div>
                         <div className="absolute top-3 left-3 bg-black/80 backdrop-blur px-2.5 py-1.5 rounded border border-rose-500/30 text-[9px] font-mono text-white flex items-center gap-2 shadow-lg">
                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></div>
                             POV_CAM_ACTIVE
                         </div>
                         <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur px-2 py-1 rounded border border-gray-700/50 text-[8px] font-mono text-gray-400">
-                            {selectedAgent.lat.toFixed(4)}, {selectedAgent.lng.toFixed(4)}
+                            {Number(selectedAgent.lat).toFixed(4)}, {Number(selectedAgent.lng).toFixed(4)}
                         </div>
                     </div>
 
