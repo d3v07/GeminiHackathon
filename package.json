@@ -1,0 +1,25 @@
+{
+  "name": "geminihackathon",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/d3v07/GeminiHackathon.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/d3v07/GeminiHackathon/issues"
+  },
+  "homepage": "https://github.com/d3v07/GeminiHackathon#readme",
+  "dependencies": {
+    "@google/genai": "^1.43.0",
+    "dotenv": "^17.3.1",
+    "node-fetch": "^3.3.2"
+  }
+}
