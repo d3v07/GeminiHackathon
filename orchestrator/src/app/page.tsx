@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import MapUI from '@/components/MapUI';
 import ControlPanel from '@/components/ControlPanel';
 
@@ -84,6 +85,13 @@ export default function Home() {
           <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center font-bold">?</span>
           User Manual
         </button>
+
+        <Link href="/explore"
+          className="absolute bottom-6 left-44 z-40 px-4 py-2 bg-violet-900/80 backdrop-blur-md border border-violet-600 text-violet-300 font-mono text-xs rounded hover:bg-violet-800 hover:text-white transition-colors shadow-lg flex items-center gap-2 animate-pulse hover:animate-none"
+        >
+          <span className="text-base">🎮</span>
+          3D Explore
+        </Link>
       </div>
 
       <div className="w-full md:w-[450px] h-1/2 md:h-full border-t md:border-t-0 md:border-l border-gray-700 bg-gray-900 shadow-xl flex flex-col relative z-20">
