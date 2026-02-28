@@ -44,7 +44,7 @@ RULES:
         contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.0-flash-001',
             contents,
             config: {
                 systemInstruction: systemPrompt,
