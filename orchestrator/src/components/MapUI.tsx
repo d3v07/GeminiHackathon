@@ -137,11 +137,15 @@ export default function MapUI() {
 
                     {/* Street View Preview */}
                     <div className="mb-8 rounded-xl overflow-hidden border border-gray-800/80 aspect-[16/10] bg-[#050505] group relative shadow-inner">
-                        <img
-                            src={`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${selectedAgent.lat},${selectedAgent.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                            alt="Street View"
-                            className="w-full h-full object-cover grayscale mix-blend-luminosity opacity-60 group-hover:opacity-100 group-hover:grayscale-0 group-hover:mix-blend-normal transition-all duration-1000"
-                        />
+                        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+                            <img
+                                src={`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${selectedAgent.lat},${selectedAgent.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                                alt="Street View"
+                                className="w-full h-full object-cover grayscale mix-blend-luminosity opacity-60 group-hover:opacity-100 group-hover:grayscale-0 group-hover:mix-blend-normal transition-all duration-1000"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-900 text-[10px] text-rose-500 font-mono">MAP API KEY MISSING</div>
+                        )}
                         <div className="absolute inset-0 border border-white/5 rounded-xl pointer-events-none"></div>
                         <div className="absolute top-3 left-3 bg-black/80 backdrop-blur px-2.5 py-1.5 rounded border border-rose-500/30 text-[9px] font-mono text-white flex items-center gap-2 shadow-lg">
                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></div>
