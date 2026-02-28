@@ -27,6 +27,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        const INTERACTION_RADIUS_METERS = 50; // Detect if within 50 meters
+
+        // Bounds for Manhattan roughly (prevent walking into Hudson River/NJ or deep Queens unnecessarily for the demo)
+        const MANHATTAN_BOUNDS = {
+            northLat: 40.87,
+            southLat: 40.70,
+            westLng: -74.02,
+            eastLng: -73.91
+        };
+
+        if (lat > MANHATTAN_BOUNDS.northLat || lat < MANHATTAN_BOUNDS.southLat ||
+            lng < MANHATTAN_BOUNDS.westLng || lng > MANHATTAN_BOUNDS.eastLng) {
+            return NextResponse.json({
+                error: 'Out of Bounds. You have hit a body of water or left the simulation zone. Please route back towards central Manhattan.',
+                correction: {
+                    suggested_lat: Math.max(MANHATTAN_BOUNDS.southLat, Math.min(MANHATTAN_BOUNDS.northLat, lat)),
+                    suggested_lng: Math.max(MANHATTAN_BOUNDS.westLng, Math.min(MANHATTAN_BOUNDS.eastLng, lng))
+                }
+            }, { status: 400 });
+        }
+
         const agentsRef = adminDb.collection('agents');
 
         // 1. Durably log the current position and state of the pinging agent
@@ -44,8 +65,6 @@ export async function POST(request: Request) {
         const snapshot = await agentsRef.get();
         let collisionDetected = false;
         let collidingAgentId = null;
-
-        const INTERACTION_RADIUS_METERS = 50; // Detect if within 50 meters
 
         snapshot.forEach(doc => {
             const otherAgent = doc.data();
