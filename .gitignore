@@ -1,0 +1,8 @@
+.agent/
+.agents/
+skills-lock.json
+skills.sh
+node_modules/
+.env
+.env.local
+.DS_Store
