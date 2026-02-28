@@ -19,6 +19,10 @@
   "homepage": "https://github.com/d3v07/GeminiHackathon#readme",
   "dependencies": {
     "@google/genai": "^1.43.0",
+    "@temporalio/activity": "^1.15.0",
+    "@temporalio/client": "^1.15.0",
+    "@temporalio/worker": "^1.15.0",
+    "@temporalio/workflow": "^1.15.0",
     "dotenv": "^17.3.1",
     "node-fetch": "^3.3.2"
   }
