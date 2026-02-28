@@ -129,6 +129,9 @@ async function npcLoop(npcId, currentState) {
             });
             console.log(`[NPC: ${npcId}] Final Action: ${finalResponse.text}`);
             currentState.history = messages;
+
+            // NEW: Push the final state locally to the World Orchestrator API
+            await pingOrchestrator(npcId, currentState, finalResponse.text);
         }
 
     } catch (e) {
@@ -136,6 +139,38 @@ async function npcLoop(npcId, currentState) {
     }
 
     return currentState;
+}
+
+// Helper to ping the orchestrator
+async function pingOrchestrator(npcId, currentState, currentAction) {
+    try {
+        const fetch = require('node-fetch');
+        const res = await fetch('http://localhost:3000/api/orchestrator', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                agentId: npcId,
+                lat: currentState.lat,
+                lng: currentState.lng,
+                defaultTask: currentAction,
+                memoryContext: JSON.stringify(currentState.history?.slice(-2) || [])
+            })
+        });
+        const data = await res.json();
+
+        // If the orchestrator detects an encounter, trigger the interaction logic
+        if (data.interaction && data.interaction.withAgent) {
+            const collidingAgentState = {
+                role: "Unknown Encountee",
+                lat: currentState.lat,
+                lng: currentState.lng,
+                history: []
+            }; // In reality, we'd fetch the other agent's true state from Firestore
+            await trigger_multi_agent_interaction(currentState, collidingAgentState);
+        }
+    } catch (e) {
+        console.error(`[NPC: ${npcId}] Failed to ping World Orchestrator:`, e.message);
+    }
 }
 
 /**
