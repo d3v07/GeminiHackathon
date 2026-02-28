@@ -9,7 +9,7 @@ export async function GET(req: Request) {
         return new NextResponse('Missing coordinates', { status: 400 });
     }
 
-    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const key = process.env.STREETVIEW_API_KEY;
     const url = `https://maps.googleapis.com/maps/api/streetview?size=400x250&location=${lat},${lng}&key=${key}`;
 
     try {
