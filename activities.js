@@ -51,10 +51,10 @@ async function executeToolCall(name, args) {
 async function generateGeminiContent(messages, mcpTools) {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             contents: messages,
             config: {
-                tools: [{ functionDeclarations: mcpTools }]
+                tools: [{ functionDeclarations: mcpTools }, { googleSearch: {} }]
             }
         });
 
@@ -137,8 +137,11 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: { role: 'user', parts: [{ text: collisionPrompt }] }
+            model: 'gemini-3-pro-preview',
+            contents: { role: 'user', parts: [{ text: collisionPrompt }] },
+            config: {
+                tools: [{ googleSearch: {} }]
+            }
         });
 
         console.log(`\n[Multi-Agent Dialogue]\n${response.text}`);
