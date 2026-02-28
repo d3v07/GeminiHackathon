@@ -5,7 +5,7 @@ import { LanguageServiceClient } from '@google-cloud/language';
 import { PredictionServiceClient } from '@google-cloud/aiplatform';
 
 // Init AI Clients
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' });
 const nlp = new LanguageServiceClient();
 const vertex = new PredictionServiceClient({
     apiEndpoint: 'us-central1-aiplatform.googleapis.com'

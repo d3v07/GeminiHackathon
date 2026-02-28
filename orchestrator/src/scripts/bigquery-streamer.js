@@ -2,12 +2,21 @@ require('dotenv').config({ path: '.env.local' });
 const { PubSub } = require('@google-cloud/pubsub');
 const { BigQuery } = require('@google-cloud/bigquery');
 
+const fs = require('fs');
+
+let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+try {
+    const envLocal = fs.readFileSync('.env.local', 'utf8');
+    const match = envLocal.match(/FIREBASE_PRIVATE_KEY="([^"]+)"/);
+    if (match) privateKey = match[1];
+} catch (e) { }
+
 // 1. Initialize BigQuery
 const bq = new BigQuery({
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     credentials: {
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        private_key: privateKey.replace(/\\n/g, '\n'),
     }
 });
 
@@ -19,7 +28,7 @@ const pubSubClient = new PubSub({
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     credentials: {
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        private_key: privateKey.replace(/\\n/g, '\n'),
     }
 });
 
