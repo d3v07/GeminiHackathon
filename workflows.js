@@ -74,6 +74,19 @@ const mcpTools = [
             },
             required: ['lat', 'lng', 'destination_name']
         }
+    },
+    {
+        name: 'find_nearby_place_mcp',
+        description: 'Find a real-world named place or landmark near a specific location.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                category: { type: 'STRING', description: 'Type of place (e.g., museum, park, cafe)' },
+                lat: { type: 'NUMBER' },
+                lng: { type: 'NUMBER' }
+            },
+            required: ['category', 'lat', 'lng']
+        }
     }
 ];
 
@@ -134,7 +147,11 @@ async function npcLoop(npcId, initialState, systemInstruction) {
                 currentState.history = messages;
 
                 // State tracking and syncing using an activity
-                await activities.pingOrchestrator(npcId, currentState, finalAiResponse.text);
+                let pingResult = await activities.pingOrchestrator(npcId, currentState, finalAiResponse.text);
+
+                if (pingResult && pingResult.isInteracting && pingResult.agentA_state && pingResult.agentB_state) {
+                    await activities.generateEncounterDialogue(pingResult.agentA_state, pingResult.agentB_state);
+                }
             }
 
         } catch (e) {

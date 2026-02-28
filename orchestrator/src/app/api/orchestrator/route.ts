@@ -18,14 +18,19 @@ const MODEL = 'text-embedding-004';
 
 // Helper for Vertex AI Embeddings
 async function getEmbedding(text: string) {
-    const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/${PUBLISHER}/models/${MODEL}`;
-    const instance = { content: text };
-    const [response] = await vertex.predict({
-        endpoint,
-        instances: [{ structValue: { fields: { content: { stringValue: text } } } }],
-    });
-    const embeddings = response.predictions?.[0]?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
-    return embeddings?.map((v: any) => v.numberValue) || [];
+    if (!text) return [];
+    try {
+        const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/${PUBLISHER}/models/${MODEL}`;
+        const [response] = await vertex.predict({
+            endpoint,
+            instances: [{ structValue: { fields: { content: { stringValue: text } } } }],
+        });
+        const embeddings = response.predictions?.[0]?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
+        return embeddings?.map((v: any) => v.numberValue) || [];
+    } catch (e) {
+        console.warn("Vertex Embedding failed:", e);
+        return [];
+    }
 }
 
 function cosineSimilarity(vecA: number[], vecB: number[]) {
@@ -98,6 +103,7 @@ export async function POST(request: Request) {
             defaultTask: defaultTask || 'Idle',
             memoryContext: memoryContext || '', // Stores recent history
             isInteracting: false,
+            role: agentId.replace('npc-', '').replace(/-/g, ' ') // fallback role
         }, { merge: true });
 
         // 2. Proximity calculation logic
@@ -139,17 +145,19 @@ export async function POST(request: Request) {
                 const historyB = JSON.parse(agentBData.memoryContext || '[]');
 
                 let bestSimilarity = -1;
-                let bestPair = null;
+                let bestPair: { textA: string, textB: string } | null = null;
 
                 for (const memA of historyA) {
                     const textA = memA.parts?.[0]?.text || "";
                     if (!textA) continue;
                     const embA = await getEmbedding(textA);
+                    if (!embA.length) continue;
 
                     for (const memB of historyB) {
                         const textB = memB.parts?.[0]?.text || "";
                         if (!textB) continue;
                         const embB = await getEmbedding(textB);
+                        if (!embB.length) continue;
 
                         const sim = cosineSimilarity(embA, embB);
                         if (sim > bestSimilarity) {
@@ -167,33 +175,53 @@ export async function POST(request: Request) {
             }
 
             const prompt = `
-            You are generating a localized dialogue between two AI agents meeting in New York City.
+            You are generating a localized, asynchronous dialogue between two NPCs who have just crossed paths at the SAME coordinates in real-world NYC.
+            They must converse based ENTIRELY on their past experiences and current state.
             
-            AGENT A: Role: ${agentAData.role || 'Citizen'}, Task: ${defaultTask}
-            AGENT B: Role: ${collidingAgentData.role || 'Citizen'}, Task: ${collidingAgentData.defaultTask}
+            AGENT A STATE:
+            Role: ${agentAData.role || 'Citizen'}
+            Location: ${lat}, ${lng}
+            Recent Task: ${agentAData.defaultTask}
             
-            Location Context: ${lat}, ${lng}
-            ${sharedContext ? `Shared Semantic Vibe: ${sharedContext}` : ""}
+            AGENT B STATE:
+            Role: ${agentBData.role || 'Citizen'}
+            Location: ${agentBData.lat}, ${agentBData.lng}
+            Recent Task: ${agentBData.defaultTask}
+
+            ${sharedContext ? `Shared context they both remember: ${sharedContext}` : ''}
             
-            Write a very short (2-3 sentences) immersive dialogue that happens as they cross paths.
+            Write a short, immersive dialogue between them, exchanging knowledge or reacting to each other's recent experiences near these coordinates. No pleasantries, get straight to the vibe.
             `;
 
-            const geminiResponse = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
-            });
-            const transcript = geminiResponse.text || "Two agents nod silently as they pass.";
+            // Call Gemini 3 Flash directly
+            let transcript = "Two agents nod silently as they pass.";
+            try {
+                const geminiResponse = await ai.models.generateContent({
+                    model: 'gemini-3-flash-preview',
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                });
+                if (geminiResponse.text) {
+                    transcript = geminiResponse.text;
+                }
+            } catch (e) {
+                console.error("Gemini Flash dialogue error", e);
+            }
 
-            // Sentiment analysis
-            const [sentimentResult] = await nlp.analyzeSentiment({
-                document: { content: transcript, type: 'PLAIN_TEXT' }
-            });
-            const sentimentScore = sentimentResult.documentSentiment?.score || 0;
+            // Cloud Natural Language sentiment analysis
+            let sentimentScore = 0;
+            try {
+                const [sentimentResult] = await nlp.analyzeSentiment({
+                    document: { content: transcript, type: 'PLAIN_TEXT' }
+                });
+                sentimentScore = sentimentResult.documentSentiment?.score || 0;
+            } catch (e) {
+                console.error("Sentiment analysis error", e);
+            }
 
-            // Save encounter
+            // Write to encounters
             const encounterRef = adminDb.collection('encounters').doc();
             await encounterRef.set({
-                participants: [agentId, collidingAgentId],
+                participants: [agentAData.role || agentId, agentBData.role || collidingAgentId],
                 transcript,
                 sentimentScore,
                 timestamp: new Date().toISOString(),
@@ -201,23 +229,19 @@ export async function POST(request: Request) {
                 lng
             });
 
-            // Update both agents
+            // Update both agent docs with dialogue & sentiment
             await agentsRef.doc(agentId).update({
-                isInteracting: true,
-                interactingWith: collidingAgentId,
                 lastEncounterDialogue: transcript,
                 sentimentScore
             });
             await agentsRef.doc(collidingAgentId).update({
-                isInteracting: true,
-                interactingWith: agentId,
                 lastEncounterDialogue: transcript,
                 sentimentScore
             });
 
             return NextResponse.json({
                 success: true,
-                message: 'Encounter resolved and logged.',
+                message: 'Encounter resolved, embedded and logged.',
                 interaction: {
                     withAgent: collidingAgentId,
                     transcript,
