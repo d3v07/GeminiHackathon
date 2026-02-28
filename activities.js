@@ -143,7 +143,7 @@ async function executeToolCall(name, args) {
 async function generateGeminiContent(messages, mcpTools) {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: messages,
             config: {
                 tools: [{ functionDeclarations: mcpTools }, { googleSearch: {} }]
@@ -241,7 +241,7 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.0-flash',
             contents: { role: 'user', parts: [{ text: collisionPrompt }] },
             config: {
                 tools: [{ googleSearch: {} }]
