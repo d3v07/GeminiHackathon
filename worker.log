@@ -22421,3 +22421,459 @@ Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process inp
   },
   durationMs: 120
 }
+2026-02-28T20:29:16.166Z [INFO] [NPC: npc-chinatown-restaurant-owner] Loop Iteration at Location: 40.7158, -73.997 {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-chinatown-restaurant-owner',
+  runId: '019ca5e4-749a-7914-b416-ef9b2b50f039',
+  workflowType: 'npcLoop'
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:16.317Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 1,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSHm5wYy1jaGluYXRvd24tcmVzdGF1cmFudC1vd25lchokMDE5Y2E1ZTQtNzQ5YS03OTE0LWI0MTYtZWY5YjJiNTBmMDM5IOcCKAEyAjQwQhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBEKLBQBgB',
+  workflowId: 'npc-chinatown-restaurant-owner',
+  workflowRunId: '019ca5e4-749a-7914-b416-ef9b2b50f039',
+  workflowType: 'npcLoop',
+  activityId: '40',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 147
+}
+2026-02-28T20:29:16.717Z [INFO] [NPC: npc-harlem-jazz-musician] Loop Iteration at Location: 40.8116, -73.9465 {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-harlem-jazz-musician',
+  runId: '019ca5e4-73b8-791c-b1d7-2ab6d6e5f411',
+  workflowType: 'npcLoop'
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:16.848Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 1,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSGG5wYy1oYXJsZW0tamF6ei1tdXNpY2lhbhokMDE5Y2E1ZTQtNzNiOC03OTFjLWIxZDctMmFiNmQ2ZTVmNDExIOECKAEyAjM5QhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBELLBQBgB',
+  workflowId: 'npc-harlem-jazz-musician',
+  workflowRunId: '019ca5e4-73b8-791c-b1d7-2ab6d6e5f411',
+  workflowType: 'npcLoop',
+  activityId: '39',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 125
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:17.506Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 2,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSG25wYy0xOTIwcy1wcm9oaWJpdGlvbi1naG9zdBokMDE5Y2E1ZTQtNzJkNy03MjFiLWFhYzUtNjFlODk5MDBiOWRhIOECKAIyAjM5QhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBELXBQBgB',
+  workflowId: 'npc-1920s-prohibition-ghost',
+  workflowRunId: '019ca5e4-72d7-721b-aac5-61e89900b9da',
+  workflowType: 'npcLoop',
+  activityId: '39',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 108
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:18.458Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 3,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSH25wYy1zdHJlc3NlZC13YWxsLXN0cmVldC1icm9rZXIaJDAxOWNhNWU0LTczNTQtNzZlOS04MDFmLTY5MmFjZjYxZTdjNyC5AigDMgIzNEIVZ2VuZXJhdGVHZW1pbmlDb250ZW50SggIARC4wUAYAQ==',
+  workflowId: 'npc-stressed-wall-street-broker',
+  workflowRunId: '019ca5e4-7354-76e9-801f-692acf61e7c7',
+  workflowType: 'npcLoop',
+  activityId: '34',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 109
+}
+2026-02-28T20:29:18.465Z [ERROR] [NPC: npc-stressed-wall-street-broker] AI/Tool Error handled. Backing off for 10 seconds. {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-stressed-wall-street-broker',
+  runId: '019ca5e4-7354-76e9-801f-692acf61e7c7',
+  workflowType: 'npcLoop'
+}
+2026-02-28T20:29:18.543Z [INFO] [NPC: npc-times-square-street-performer] Loop Iteration at Location: 40.758, -73.9855 {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-times-square-street-performer',
+  runId: '019ca5e4-75a4-76ed-926f-080c8f7e549d',
+  workflowType: 'npcLoop'
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:18.654Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 1,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSIW5wYy10aW1lcy1zcXVhcmUtc3RyZWV0LXBlcmZvcm1lchokMDE5Y2E1ZTQtNzVhNC03NmVkLTkyNmYtMDgwYzhmN2U1NDlkIM8CKAEyAjM2QhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBENXBQBgB',
+  workflowId: 'npc-times-square-street-performer',
+  workflowRunId: '019ca5e4-75a4-76ed-926f-080c8f7e549d',
+  workflowType: 'npcLoop',
+  activityId: '36',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 108
+}
+2026-02-28T20:29:19.803Z [INFO] [NPC: npc-central-park-dog-walker] Loop Iteration at Location: 40.7829, -73.9654 {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-central-park-dog-walker',
+  runId: '019ca5e4-755f-7845-b1eb-e463a1b4250e',
+  workflowType: 'npcLoop'
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:19.980Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 1,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSG25wYy1jZW50cmFsLXBhcmstZG9nLXdhbGtlchokMDE5Y2E1ZTQtNzU1Zi03ODQ1LWIxZWItZTQ2M2ExYjQyNTBlIM8CKAEyAjM2QhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBEOXBQBgB',
+  workflowId: 'npc-central-park-dog-walker',
+  workflowRunId: '019ca5e4-755f-7845-b1eb-e463a1b4250e',
+  workflowType: 'npcLoop',
+  activityId: '36',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 172
+}
+2026-02-28T20:29:20.897Z [INFO] [NPC: npc-brooklyn-tech-startup-founder] Loop Iteration at Location: 40.716, -73.9647 {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-brooklyn-tech-startup-founder',
+  runId: '019ca5e4-742f-7d65-84a5-f93352801fc7',
+  workflowType: 'npcLoop'
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:21.061Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 1,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSIW5wYy1icm9va2x5bi10ZWNoLXN0YXJ0dXAtZm91bmRlchokMDE5Y2E1ZTQtNzQyZi03ZDY1LTg0YTUtZjkzMzUyODAxZmM3IJADKAEyAjQ2QhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBEPXBQBgB',
+  workflowId: 'npc-brooklyn-tech-startup-founder',
+  workflowRunId: '019ca5e4-742f-7d65-84a5-f93352801fc7',
+  workflowType: 'npcLoop',
+  activityId: '46',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 160
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:21.301Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 3,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSGW5wYy11bmRlcmdyb3VuZC1oaXN0b3JpYW4aJDAxOWNhNWU0LTcyM2EtN2E0MS04NTAyLTViNjQ2YmFkMDkxOSDhAigDMgIzOUIVZ2VuZXJhdGVHZW1pbmlDb250ZW50SggIARD4wUAYAQ==',
+  workflowId: 'npc-underground-historian',
+  workflowRunId: '019ca5e4-723a-7a41-8502-5b646bad0919',
+  workflowType: 'npcLoop',
+  activityId: '39',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 105
+}
+2026-02-28T20:29:21.307Z [ERROR] [NPC: npc-underground-historian] AI/Tool Error handled. Backing off for 10 seconds. {
+  sdkComponent: 'workflow',
+  taskQueue: 'npc-simulation',
+  namespace: 'default',
+  workflowId: 'npc-underground-historian',
+  runId: '019ca5e4-723a-7a41-8502-5b646bad0919',
+  workflowType: 'npcLoop'
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:21.462Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 2,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSHm5wYy1jaGluYXRvd24tcmVzdGF1cmFudC1vd25lchokMDE5Y2E1ZTQtNzQ5YS03OTE0LWI0MTYtZWY5YjJiNTBmMDM5IOcCKAIyAjQwQhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBEIjCQBgB',
+  workflowId: 'npc-chinatown-restaurant-owner',
+  workflowRunId: '019ca5e4-749a-7914-b416-ef9b2b50f039',
+  workflowType: 'npcLoop',
+  activityId: '40',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 138
+}
+Gemini AI Error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+    at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+    at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+    at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+    at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+    at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+    at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+    at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+  status: 400
+}
+2026-02-28T20:29:21.979Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'npc-simulation',
+  isLocal: false,
+  attempt: 2,
+  namespace: 'default',
+  taskToken: 'CiQwMTljYTVlNC01MTZjLTc5MDAtOWRjOC1mMWUxMGI0NTA0NDkSGG5wYy1oYXJsZW0tamF6ei1tdXNpY2lhbhokMDE5Y2E1ZTQtNzNiOC03OTFjLWIxZDctMmFiNmQ2ZTVmNDExIOECKAIyAjM5QhVnZW5lcmF0ZUdlbWluaUNvbnRlbnRKCAgBEIvCQBgB',
+  workflowId: 'npc-harlem-jazz-musician',
+  workflowRunId: '019ca5e4-73b8-791c-b1d7-2ab6d6e5f411',
+  workflowType: 'npcLoop',
+  activityId: '39',
+  activityType: 'generateGeminiContent',
+  error: ApiError: {"error":{"code":400,"message":"Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting","status":"INVALID_ARGUMENT"}}
+      at throwErrorIfNotOK (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12445:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:12148:13
+      at async Models.generateContent (/Users/dev/Documents/GeminiHackathon/node_modules/@google/genai/dist/node/index.cjs:13549:24)
+      at async generateGeminiContent (/Users/dev/Documents/GeminiHackathon/activities.js:147:26)
+      at async Activity.execute (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:101:20)
+      at async InternalNativeConnection.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal (/Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/activity.js:161:32
+      at async /Users/dev/Documents/GeminiHackathon/node_modules/@temporalio/worker/lib/worker.js:776:30 {
+    status: 400
+  },
+  durationMs: 125
+}
