@@ -1,6 +1,17 @@
 require('dotenv').config();
 const { Connection, Client } = require('@temporalio/client');
-const crypto = require('crypto');
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+        })
+    });
+}
+const db = admin.firestore();
 
 async function run() {
     // Connect to the local Temporal cluster
@@ -64,12 +75,35 @@ async function run() {
     console.log(`Starting Spawner... Dispatching ${npcsToSpawn.length} Temporal Workflows.`);
 
     for (const npc of npcsToSpawn) {
-        const npcId = `npc-${npc.role.replace(/\s+/g, '-').toLowerCase()}-${crypto.randomBytes(2).toString('hex')}`;
+        // Deterministic ID allows agents to recover state across engine cycles
+        const npcId = `npc-${npc.role.replace(/\s+/g, '-').toLowerCase()}`;
+
+        let initialState = { lat: npc.startLat, lng: npc.startLng, role: npc.role, history: [] };
+
+        try {
+            const doc = await db.collection('agents').doc(npcId).get();
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.lat && data.lng) {
+                    initialState.lat = data.lat;
+                    initialState.lng = data.lng;
+                    console.log(`[State Recovery] ${npcId} resumed at ${data.lat}, ${data.lng}`);
+                }
+                if (data.memoryContext) {
+                    try {
+                        const parsedHistory = JSON.parse(data.memoryContext);
+                        initialState.history = Array.isArray(parsedHistory) ? parsedHistory : [];
+                    } catch (e) { }
+                }
+            }
+        } catch (err) {
+            console.log(`Could not fetch state for ${npcId}, spawning fresh.`);
+        }
 
         await client.workflow.start('npcLoop', {
             taskQueue: 'npc-simulation',
             workflowId: npcId,
-            args: [npcId, { lat: npc.startLat, lng: npc.startLng, role: npc.role, history: [] }, npc.instruction],
+            args: [npcId, initialState, npc.instruction],
         });
 
         console.log(`[Spawned Workflow] ${npcId} -> Role: ${npc.role}`);

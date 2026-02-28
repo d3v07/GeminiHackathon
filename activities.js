@@ -1,8 +1,21 @@
 require('dotenv').config();
-const { GoogleGenAI } = require('@google/genai');
+const { VertexAI } = require('@google-cloud/vertexai');
 const { PubSub } = require('@google-cloud/pubsub');
+const admin = require('firebase-admin');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+        })
+    });
+}
+const db = admin.firestore();
+
+// Initialize Vertex AI
+const vertexAI = new VertexAI({ project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, location: 'us-central1' });
 const pubsub = new PubSub();
 
 async function executeToolCall(name, args) {
@@ -72,6 +85,42 @@ async function executeToolCall(name, args) {
             console.error("StreetView fetch error:", e);
             throw new Error('API Timeout or Error');
         }
+    } else if (name === 'find_nearby_place_mcp') {
+        try {
+            const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+                    'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating'
+                },
+                body: JSON.stringify({
+                    includedTypes: [args.category],
+                    maxResultCount: 1,
+                    locationRestriction: {
+                        circle: {
+                            center: { latitude: args.lat, longitude: args.lng },
+                            radius: 1000.0
+                        }
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.places && data.places.length > 0) {
+                const place = data.places[0];
+                return {
+                    name: place.displayName?.text,
+                    address: place.formattedAddress,
+                    lat: place.location?.latitude,
+                    lng: place.location?.longitude,
+                    rating: place.rating
+                };
+            }
+            return { error: "No places found for category" };
+        } catch (e) {
+            console.error("Places API error:", e);
+            throw new Error('API Timeout or Error');
+        }
     } else if (name === 'move_to_location') {
         // This tool is used to formally register the move in the state
         return { status: "SUCCESS", lat: args.lat, lng: args.lng, destination: args.destination_name };
@@ -81,30 +130,37 @@ async function executeToolCall(name, args) {
 
 async function generateGeminiContent(messages, mcpTools) {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: messages,
-            config: {
-                tools: [{ functionDeclarations: mcpTools }, { googleSearch: {} }]
-            }
+        const generativeModel = vertexAI.getGenerativeModel({
+            model: 'gemini-3-pro-preview',
+            tools: [{ functionDeclarations: mcpTools }, { googleSearchRetrieval: {} }]
         });
 
+        const request = { contents: messages };
+        const responseStream = await generativeModel.generateContent(request);
+        const response = await responseStream.response;
+
         let parsedResponse = {
-            text: response.text,
+            text: response.candidates?.[0]?.content?.parts?.[0]?.text || "",
             functionCalls: [],
             candidateContent: response.candidates?.[0]?.content
         };
 
-        if (response.functionCalls && response.functionCalls.length > 0) {
-            parsedResponse.functionCalls = response.functionCalls.map(call => ({
-                name: call.name,
-                args: call.args
-            }));
+        const candidateParts = response.candidates?.[0]?.content?.parts || [];
+        for (const part of candidateParts) {
+            if (part.functionCall) {
+                parsedResponse.functionCalls.push({
+                    name: part.functionCall.name,
+                    args: part.functionCall.args
+                });
+            }
+            if (part.text) {
+                parsedResponse.text = part.text;
+            }
         }
 
         return parsedResponse;
     } catch (e) {
-        console.error("Gemini API Error:", e);
+        console.error("Vertex AI Error:", e);
         throw e;
     }
 }
@@ -122,15 +178,37 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
 
         await topic.publishMessage({ data: Buffer.from(payload) });
         console.log(`[NPC: ${npcId}] Published update to Pub/Sub 'agent-updates'`);
-        return { success: true };
+
+        // Polling Firestore for interaction status set by Orchestrator
+        try {
+            const agentDoc = await db.collection('agents').doc(npcId).get();
+            if (agentDoc.exists) {
+                const data = agentDoc.data();
+                if (data.isInteracting && data.encounterWith) {
+                    const otherDoc = await db.collection('agents').doc(data.encounterWith).get();
+                    if (otherDoc.exists) {
+                        return {
+                            success: true,
+                            isInteracting: true,
+                            agentA_state: data,
+                            agentB_state: otherDoc.data()
+                        };
+                    }
+                }
+            }
+        } catch (dbErr) {
+            console.error("Firestore poll error:", dbErr.message);
+        }
+
+        return { success: true, isInteracting: false };
     } catch (e) {
         console.error(`[NPC: ${npcId}] Failed to publish to Pub/Sub:`, e.message);
         return { success: false, error: e.message };
     }
 }
 
-async function trigger_multi_agent_interaction(agentA_state, agentB_state) {
-    console.log(`\n--- ENCOUNTER DETECTED ---`);
+async function generateEncounterDialogue(agentA_state, agentB_state) {
+    console.log(`\n--- TEMPORAL ENCOUNTER DETECTED ---`);
     console.log(`NPC A (${agentA_state.role}) meets NPC B (${agentB_state.role})`);
 
     const collisionPrompt = `
@@ -140,29 +218,45 @@ They must converse based ENTIRELY on their past experiences and current state.
 AGENT A STATE:
 Role: ${agentA_state.role}
 Location: ${agentA_state.lat}, ${agentA_state.lng}
-Recent History: ${JSON.stringify(agentA_state.history?.slice(-3) || "Just arrived in NYC.")}
+Recent History: ${JSON.stringify(agentA_state.history || "Just arrived in NYC.")}
 
 AGENT B STATE:
 Role: ${agentB_state.role}
 Location: ${agentB_state.lat}, ${agentB_state.lng}
-Recent History: ${JSON.stringify(agentB_state.history?.slice(-3) || "Looking for a clue.")}
+Recent History: ${JSON.stringify(agentB_state.history || "Looking for a clue.")}
 
 Write a short, immersive dialogue between them, exchanging knowledge or reacting to each other's recent experiences near these coordinates.
 `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: { role: 'user', parts: [{ text: collisionPrompt }] },
-            config: {
-                tools: [{ googleSearch: {} }]
-            }
+        const generativeModel = vertexAI.getGenerativeModel({
+            model: 'gemini-3-pro-preview',
+            tools: [{ googleSearchRetrieval: {} }]
         });
 
-        console.log(`\n[Multi-Agent Dialogue]\n${response.text}`);
-        return response.text;
+        const responseStream = await generativeModel.generateContent({
+            contents: [{ role: 'user', parts: [{ text: collisionPrompt }] }]
+        });
+        const response = await responseStream.response;
+        const textResponse = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        console.log(`\n[Multi-Agent Dialogue]\n${textResponse}`);
+
+        // Publish to Pub/Sub 'agent-encounters' topic
+        const topic = pubsub.topic('agent-encounters');
+        const payload = JSON.stringify({
+            participants: [agentA_state.agentId || agentA_state.role, agentB_state.agentId || agentB_state.role],
+            transcript: textResponse,
+            lat: agentA_state.lat,
+            lng: agentA_state.lng,
+            timestamp: new Date().toISOString()
+        });
+        await topic.publishMessage({ data: Buffer.from(payload) });
+        console.log('Published encounter dialogue to Pub/Sub agent-encounters');
+
+        return textResponse;
     } catch (e) {
-        console.error("Error during multi-agent interaction:", e);
+        console.error("Error during durable multi-agent interaction:", e);
         throw e;
     }
 }
@@ -171,5 +265,5 @@ module.exports = {
     executeToolCall,
     generateGeminiContent,
     pingOrchestrator,
-    trigger_multi_agent_interaction
+    generateEncounterDialogue
 };
