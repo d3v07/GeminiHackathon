@@ -50,7 +50,7 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
         });
     }, [apiIsLoaded, lat, lng]);
 
-    return <div ref={ref} className="w-full h-full opacity-0 animate-in fade-in duration-1000" style={{ animationFillMode: 'forwards' }} />;
+    return <div ref={ref} className="w-full h-full transition-all duration-1000" />;
 };
 
 export default function MapUI() {
