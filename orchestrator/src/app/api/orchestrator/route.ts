@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
         const INTERACTION_RADIUS_METERS = 50; // Detect if within 50 meters
 
-        // Bounds for Manhattan roughly (prevent walking into Hudson River/NJ or deep Queens unnecessarily for the demo)
+        // Bounds for Manhattan roughly
         const MANHATTAN_BOUNDS = {
             northLat: 40.87,
             southLat: 40.70,
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
         if (lat > MANHATTAN_BOUNDS.northLat || lat < MANHATTAN_BOUNDS.southLat ||
             lng < MANHATTAN_BOUNDS.westLng || lng > MANHATTAN_BOUNDS.eastLng) {
             return NextResponse.json({
-                error: 'Out of Bounds. You have hit a body of water or left the simulation zone. Please route back towards central Manhattan.',
+                error: 'Out of Bounds. Please route back towards central Manhattan.',
                 correction: {
                     suggested_lat: Math.max(MANHATTAN_BOUNDS.southLat, Math.min(MANHATTAN_BOUNDS.northLat, lat)),
                     suggested_lng: Math.max(MANHATTAN_BOUNDS.westLng, Math.min(MANHATTAN_BOUNDS.eastLng, lng))
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
             lng,
             lastUpdated: new Date().toISOString(),
             defaultTask: defaultTask || 'Idle',
-            memoryContext: memoryContext || '',
+            memoryContext: memoryContext || '', // Stores recent history
             isInteracting: false,
         }, { merge: true });
 
@@ -122,22 +122,48 @@ export async function POST(request: Request) {
         });
 
         if (collisionDetected && collidingAgentId && collidingAgentData) {
-            // 3. Resolve Encounter (TASK-D4: Semantic Memory)
+            // Fetch fresh doc for A
             const agentADoc = await agentsRef.doc(agentId).get();
             const agentAData = agentADoc.data() || {};
+            const agentBData = collidingAgentData;
 
-            // Extract shared semantic concepts (MAXIMALISM)
+            // Mark both as interacting
+            await agentsRef.doc(agentId).update({ isInteracting: true, interactingWith: collidingAgentId });
+            await agentsRef.doc(collidingAgentId).update({ isInteracting: true, interactingWith: agentId });
+
+            // Fourth task: Vertex AI Embeddings for Encounter Context
             let sharedContext = "";
             try {
-                const embA = await getEmbedding(defaultTask || "");
-                const embB = await getEmbedding(collidingAgentData.defaultTask || "");
-                const similarity = cosineSimilarity(embA, embB);
+                // Parse history safely
+                const historyA = JSON.parse(agentAData.memoryContext || '[]');
+                const historyB = JSON.parse(agentBData.memoryContext || '[]');
 
-                if (similarity > 0.8) {
-                    sharedContext = "They both seem to be focused on similar goals or themes.";
+                let bestSimilarity = -1;
+                let bestPair = null;
+
+                for (const memA of historyA) {
+                    const textA = memA.parts?.[0]?.text || "";
+                    if (!textA) continue;
+                    const embA = await getEmbedding(textA);
+
+                    for (const memB of historyB) {
+                        const textB = memB.parts?.[0]?.text || "";
+                        if (!textB) continue;
+                        const embB = await getEmbedding(textB);
+
+                        const sim = cosineSimilarity(embA, embB);
+                        if (sim > bestSimilarity) {
+                            bestSimilarity = sim;
+                            bestPair = { textA, textB };
+                        }
+                    }
+                }
+
+                if (bestSimilarity > 0.6 && bestPair) {
+                    sharedContext = `Agent A's related memory: "${bestPair.textA.substring(0, 100)}". Agent B's related memory: "${bestPair.textB.substring(0, 100)}".`;
                 }
             } catch (e) {
-                console.warn("Semantic matching failed, falling back to basic prompt.");
+                console.warn("Error during Vertex embeddings", e);
             }
 
             const prompt = `

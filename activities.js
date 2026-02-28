@@ -8,17 +8,17 @@ const pubsub = new PubSub();
 async function executeToolCall(name, args) {
     if (name === 'get_weather_mcp') {
         try {
-            // Use Open-Meteo (No key required) for real NYC weather integration (BUG-3 Fix)
-            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true`);
+            // Use OpenWeatherMap (Task 2)
+            const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=40.7128&lon=-74.0060&appid=${process.env.OPENWEATHER_API_KEY}&units=metric`);
             const weatherData = await weatherRes.json();
-            const current = weatherData.current_weather;
+            const current = weatherData;
 
             // Map code to human readable
-            const isRaining = current.weathercode >= 51;
+            const isRaining = current.weather?.length > 0 && current.weather[0].main.toLowerCase().includes('rain');
             return {
                 weather: isRaining ? "Raining" : "Clear",
-                temperature: `${current.temperature}C`,
-                windspeed: current.windspeed,
+                temperature: `${current.main.temp}C`,
+                windspeed: current.wind.speed,
                 status: "OK"
             };
         } catch (e) {
