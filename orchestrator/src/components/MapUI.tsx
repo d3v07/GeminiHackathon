@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useSimulation } from '@/lib/SimulationContext';
 
 const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
 
@@ -31,12 +30,13 @@ const getAgentIcon = (role: string = '') => {
 
 const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
     const apiIsLoaded = useApiIsLoaded();
-    const ref = React.useRef<HTMLDivElement>(null);
+    const ref = useRef<HTMLDivElement>(null);
+    const panoRef = useRef<google.maps.StreetViewPanorama | null>(null);
 
     useEffect(() => {
         if (!apiIsLoaded || !ref.current || !window.google?.maps?.StreetViewPanorama) return;
 
-        new window.google.maps.StreetViewPanorama(ref.current, {
+        panoRef.current = new window.google.maps.StreetViewPanorama(ref.current, {
             position: { lat, lng },
             pov: { heading: 100, pitch: 0 },
             zoom: 1,
@@ -48,44 +48,30 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
             clickToGo: true,
             addressControl: false,
         });
+
+        return () => {
+            if (panoRef.current) {
+                panoRef.current.setVisible(false);
+                panoRef.current = null;
+            }
+        };
     }, [apiIsLoaded, lat, lng]);
 
     return <div ref={ref} className="w-full h-full transition-all duration-1000" />;
 };
 
 export default function MapUI() {
-    const [agents, setAgents] = useState<any[]>([]);
+    const { agents } = useSimulation();
     const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
     const [commMessage, setCommMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
 
+    // Keep selectedAgent in sync with latest data from context
     useEffect(() => {
-        let isMounted = true;
-        const fetchState = async () => {
-            try {
-                const res = await fetch('/api/state');
-                const data = await res.json();
-                if (isMounted && data.agents) {
-                    setAgents(data.agents);
-                    setSelectedAgent((prev: any) => {
-                        if (!prev) return prev;
-                        const updated = data.agents.find((a: any) => a.id === prev.id);
-                        return updated || prev;
-                    });
-                }
-            } catch (e) {
-                console.error("Poll error:", e);
-            }
-        };
-
-        fetchState();
-        const interval = setInterval(fetchState, 1500);
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
-    }, []);
+        if (!selectedAgent) return;
+        const updated = agents.find((a: any) => a.id === selectedAgent.id);
+        if (updated) setSelectedAgent(updated);
+    }, [agents]);
 
     const getMoodColor = (score: number = 0) => {
         if (score > 0.3) return 'bg-emerald-500'; // Happy
