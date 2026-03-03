@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import MapUI from '@/components/MapUI';
 import ControlPanel from '@/components/ControlPanel';
+import { SimulationProvider } from '@/lib/SimulationContext';
 
 export default function Home() {
   const [isServerActive, setIsServerActive] = useState(true);
@@ -24,6 +25,7 @@ export default function Home() {
   };
 
   return (
+    <SimulationProvider enabled={isServerActive}>
     <main className="flex h-screen w-screen bg-black overflow-hidden flex-col md:flex-row relative">
 
       {/* USER MANUAL MODAL */}
@@ -100,5 +102,6 @@ export default function Home() {
         </div>
       </div>
     </main>
+    </SimulationProvider>
   );
 }

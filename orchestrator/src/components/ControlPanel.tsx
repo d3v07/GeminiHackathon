@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useSimulation } from '@/lib/SimulationContext';
 
 interface Encounter {
     id: string;
@@ -19,9 +18,8 @@ export default function ControlPanel({
     onSimulateKill: () => void;
     onRestart: () => void;
 }) {
-    const [agents, setAgents] = useState<any[]>([]);
+    const { agents, encounters } = useSimulation();
     const [logs, setLogs] = useState<string[]>([]);
-    const [encounters, setEncounters] = useState<Encounter[]>([]);
     const [isServerDead, setIsServerDead] = useState(false);
 
     // Stats calculations
@@ -85,22 +83,13 @@ export default function ControlPanel({
 
     const prevAgentsRef = useRef<Record<string, any>>({});
 
-    // API Polling listener
+    // Derive diffs from SimulationContext instead of separate polling
     useEffect(() => {
-        let isMounted = true;
+        if (isServerDead || agents.length === 0) return;
 
-        const fetchState = async () => {
-            if (isServerDead) return;
-            try {
-                const res = await fetch('/api/state');
-                const data = await res.json();
-                if (!isMounted || !data.agents) return;
-
-                const newAgentsData = data.agents;
-                const newEncounters = data.encounters || [];
-
-                setAgents(newAgentsData);
-                setEncounters(newEncounters);
+        {
+            const newAgentsData = agents;
+            const newEncounters = encounters;
 
                 // Compute differences for logs
                 newAgentsData.forEach((agent: any) => {
@@ -123,20 +112,8 @@ export default function ControlPanel({
 
                     prevAgentsRef.current[agentId] = { ...newAgent };
                 });
-
-            } catch (e) {
-                console.error("Failed to fetch state API", e);
-            }
-        };
-
-        fetchState();
-        const interval = setInterval(fetchState, 1500);
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
-    }, [isServerDead]);
+        }
+    }, [agents, encounters, isServerDead]);
 
     const handleKill = () => {
         setIsServerDead(true);

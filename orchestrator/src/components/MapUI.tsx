@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useSimulation } from '@/lib/SimulationContext';
 
 const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
 
@@ -54,36 +53,15 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
 };
 
 export default function MapUI() {
-    const [agents, setAgents] = useState<any[]>([]);
+    const { agents } = useSimulation();
     const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
 
+    // Keep selectedAgent in sync with latest data from context
     useEffect(() => {
-        let isMounted = true;
-        const fetchState = async () => {
-            try {
-                const res = await fetch('/api/state');
-                const data = await res.json();
-                if (isMounted && data.agents) {
-                    setAgents(data.agents);
-                    setSelectedAgent((prev: any) => {
-                        if (!prev) return prev;
-                        const updated = data.agents.find((a: any) => a.id === prev.id);
-                        return updated || prev;
-                    });
-                }
-            } catch (e) {
-                console.error("Poll error:", e);
-            }
-        };
-
-        fetchState();
-        const interval = setInterval(fetchState, 1500);
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
-    }, []);
+        if (!selectedAgent) return;
+        const updated = agents.find((a: any) => a.id === selectedAgent.id);
+        if (updated) setSelectedAgent(updated);
+    }, [agents]);
 
     const getMoodColor = (score: number = 0) => {
         if (score > 0.3) return 'bg-emerald-500'; // Happy
