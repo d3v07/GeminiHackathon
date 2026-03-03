@@ -159,6 +159,15 @@ async function npcLoop(npcId, initialState, systemInstruction) {
 
                 // Re-prompt the model with tool results
                 let finalAiResponse = await activities.generateGeminiContent(messages, mcpTools);
+
+                // #20: Sliding window — keep system prompt + last 20 turns to avoid token overflow
+                const MAX_HISTORY = 20;
+                if (messages.length > MAX_HISTORY + 2) {
+                    const systemMessages = messages.slice(0, 2);
+                    const recentMessages = messages.slice(-MAX_HISTORY);
+                    messages.length = 0;
+                    messages.push(...systemMessages, ...recentMessages);
+                }
                 currentState.history = messages;
 
                 // State tracking and syncing using an activity
