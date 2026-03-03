@@ -3,27 +3,33 @@
 import { useState } from 'react';
 import MapUI from '@/components/MapUI';
 import ControlPanel from '@/components/ControlPanel';
+import { SimulationProvider } from '@/lib/SimulationContext';
 
 export default function Home() {
   const [isServerActive, setIsServerActive] = useState(true);
   const [showManual, setShowManual] = useState(false);
 
   const testTrigger = async () => {
-    // A quick way for the judges to drop a test agent into Firestore from the UI
-    const res = await fetch('/api/orchestrator', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        agentId: 'Judge_Test_Agent_' + Math.floor(Math.random() * 1000),
-        lat: 40.7580 + (Math.random() - 0.5) * 0.05,
-        lng: -73.9855 + (Math.random() - 0.5) * 0.05,
-        defaultTask: 'Exploring NYC',
-      }),
-    });
-    console.log(await res.json());
+    try {
+      const res = await fetch('/api/orchestrator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: 'Judge_Test_Agent_' + Math.floor(Math.random() * 1000),
+          lat: 40.7580 + (Math.random() - 0.5) * 0.05,
+          lng: -73.9855 + (Math.random() - 0.5) * 0.05,
+          defaultTask: 'Exploring NYC',
+        }),
+      });
+      if (!res.ok) throw new Error(`Spawn failed: ${res.status}`);
+      console.log(await res.json());
+    } catch (e) {
+      console.error('Failed to spawn test NPC:', e);
+    }
   };
 
   return (
+    <SimulationProvider enabled={isServerActive}>
     <main className="flex h-screen w-screen bg-black overflow-hidden flex-col md:flex-row relative">
 
       {/* USER MANUAL MODAL */}
@@ -100,5 +106,6 @@ export default function Home() {
         </div>
       </div>
     </main>
+    </SimulationProvider>
   );
 }
