@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
 import { useSimulation } from '@/lib/SimulationContext';
 
@@ -30,12 +30,13 @@ const getAgentIcon = (role: string = '') => {
 
 const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
     const apiIsLoaded = useApiIsLoaded();
-    const ref = React.useRef<HTMLDivElement>(null);
+    const ref = useRef<HTMLDivElement>(null);
+    const panoRef = useRef<google.maps.StreetViewPanorama | null>(null);
 
     useEffect(() => {
         if (!apiIsLoaded || !ref.current || !window.google?.maps?.StreetViewPanorama) return;
 
-        new window.google.maps.StreetViewPanorama(ref.current, {
+        panoRef.current = new window.google.maps.StreetViewPanorama(ref.current, {
             position: { lat, lng },
             pov: { heading: 100, pitch: 0 },
             zoom: 1,
@@ -47,6 +48,13 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
             clickToGo: true,
             addressControl: false,
         });
+
+        return () => {
+            if (panoRef.current) {
+                panoRef.current.setVisible(false);
+                panoRef.current = null;
+            }
+        };
     }, [apiIsLoaded, lat, lng]);
 
     return <div ref={ref} className="w-full h-full opacity-0 animate-in fade-in duration-1000" style={{ animationFillMode: 'forwards' }} />;
