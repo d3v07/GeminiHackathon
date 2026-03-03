@@ -60,15 +60,13 @@ export default function ControlPanel({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text, role })
             });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                audioQueue.current.push(url);
-                processAudioQueue();
-            }
+            if (!response.ok) throw new Error(`TTS API returned ${response.status}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            audioQueue.current.push(url);
+            processAudioQueue();
         } catch (e) {
-            console.error("TTS Fetch Error:", e);
+            console.error('TTS fetch failed:', e);
         }
     };
 
