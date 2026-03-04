@@ -4,14 +4,7 @@ const { VertexAI } = require('@google-cloud/vertexai');
 const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
 
-const fs = require('fs');
-
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-try {
-    const envLocal = fs.readFileSync('./orchestrator/.env.local', 'utf8');
-    const match = envLocal.match(/FIREBASE_PRIVATE_KEY="([^"]+)"/);
-    if (match) privateKey = match[1];
-} catch (e) { }
 
 if (!admin.apps.length) {
     admin.initializeApp({
@@ -27,16 +20,12 @@ const db = admin.firestore();
 // Initialize Vertex AI
 const vertexAI = new VertexAI({ project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, location: 'us-central1' });
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-try {
-} catch (e) {
-    console.warn('PubSub not available — running without it.');
-}
 
 async function executeToolCall(name, args) {
     if (name === 'get_weather_mcp') {
         try {
             // Use OpenWeatherMap (Task 2)
-            const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=40.7128&lon=-74.0060&appid=${process.env.OPENWEATHER_API_KEY}&units=metric`);
+            const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${args.lat}&lon=${args.lng}&appid=${process.env.OPENWEATHER_API_KEY}&units=metric`);
             const weatherData = await weatherRes.json();
             const current = weatherData;
 
@@ -308,16 +297,7 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
         console.log(`\n[Multi-Agent Dialogue]\n${textResponse}`);
 
-        // Publish to Pub/Sub 'agent-encounters' topic
-        const payload = JSON.stringify({
-            participants: [agentA_state.agentId || agentA_state.role, agentB_state.agentId || agentB_state.role],
-            transcript: textResponse,
-            lat: agentA_state.lat,
-            lng: agentA_state.lng,
-            timestamp: new Date().toISOString()
-        });
-        await topic.publishMessage({ data: Buffer.from(payload) });
-        console.log('Published encounter dialogue to Pub/Sub agent-encounters');
+
 
         return textResponse; // Not strictly needed, Temporal uses orchestrator API anyway
     } catch (e) {
