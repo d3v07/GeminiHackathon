@@ -7,14 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pubsub": "node src/scripts/pubsub-listener.js",
-    "bigquery": "node src/scripts/bigquery-streamer.js"
+    "migrate": "node src/scripts/migrate.js"
   },
   "dependencies": {
     "@google-cloud/aiplatform": "^6.4.0",
     "@google-cloud/bigquery": "^8.1.1",
     "@google-cloud/language": "^7.2.1",
-    "@google-cloud/pubsub": "^5.3.0",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/genai": "^1.43.0",
     "@vis.gl/react-google-maps": "^1.7.1",

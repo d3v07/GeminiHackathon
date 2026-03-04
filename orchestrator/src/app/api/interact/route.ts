@@ -3,20 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import language from '@google-cloud/language';
-import admin from 'firebase-admin';
+import { adminDb } from '@/lib/firebase-admin';
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: privateKey.replace(/\\n/g, '\n')
-        })
-    });
-}
-const db = admin.firestore();
-
 let geminiKey = process.env.GEMINI_API_KEY || '';
 if (!geminiKey) {
     try {
@@ -66,7 +55,7 @@ export async function POST(req: Request) {
         const aiReply = response.text || "System anomaly: Connection lost.";
 
         // 3. Update the global Firestore database to reflect the interaction and the new agent Vibe (Sentiment)
-        await db.collection('agents').doc(agentId).set({
+        await adminDb.collection('agents').doc(agentId).set({
             lastEncounterDialogue: `[USER]: ${message} | [REPLY]: ${aiReply}`,
             sentimentScore: sentimentScore,
             isInteracting: false,
