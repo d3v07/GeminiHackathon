@@ -3,6 +3,8 @@ require('dotenv').config({ path: './orchestrator/.env.local' });
 const { VertexAI } = require('@google-cloud/vertexai');
 const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
+const { runCognitiveStep } = require('./lib/cognitive-graph');
+const { handleEncounter } = require('./lib/encounter');
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
@@ -306,9 +308,19 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
     }
 }
 
+async function cognitiveStep(npcId, currentState) {
+    return runCognitiveStep(npcId, currentState, executeToolCall);
+}
+
+async function handleEncounterDialogue(agentA_state, agentB_state) {
+    return handleEncounter(agentA_state, agentB_state);
+}
+
 module.exports = {
     executeToolCall,
     generateGeminiContent,
     pingOrchestrator,
-    generateEncounterDialogue
+    generateEncounterDialogue,
+    cognitiveStep,
+    handleEncounterDialogue,
 };
