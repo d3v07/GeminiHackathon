@@ -1,0 +1,55 @@
+namespace: metropolis
+
+image:
+  registry: gcr.io/PROJECT_ID
+  pullPolicy: IfNotPresent
+  tag: latest
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    scaleDownStabilizationSeconds: 300
+
+spawner:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+temporal:
+  address: "temporal.metropolis.svc.cluster.local:7233"
+
+ingress:
+  enabled: true
+  host: metropolis.dev
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+
+config:
+  nodeEnv: production
+  taskQueue: npc-simulation

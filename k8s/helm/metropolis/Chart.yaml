@@ -1,0 +1,6 @@
+apiVersion: v2
+name: metropolis
+description: Metropolis AI NPC Simulation Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

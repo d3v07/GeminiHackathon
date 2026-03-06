@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spawner
+  namespace: metropolis
+  labels:
+    app: metropolis
+    component: spawner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metropolis
+      component: spawner
+  template:
+    metadata:
+      labels:
+        app: metropolis
+        component: spawner
+    spec:
+      containers:
+        - name: spawner
+          image: gcr.io/PROJECT_ID/metropolis-spawner:latest
+          envFrom:
+            - configMapRef:
+                name: metropolis-config
+            - secretRef:
+                name: metropolis-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      restartPolicy: Always

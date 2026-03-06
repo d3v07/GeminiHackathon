@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metropolis-config
+  namespace: {{ .Values.namespace }}
+data:
+  NODE_ENV: {{ .Values.config.nodeEnv | quote }}
+  TEMPORAL_ADDRESS: {{ .Values.temporal.address | quote }}
+  TEMPORAL_TASK_QUEUE: {{ .Values.config.taskQueue | quote }}

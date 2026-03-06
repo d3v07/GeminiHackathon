@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metropolis-config
+  namespace: metropolis
+data:
+  NODE_ENV: "production"
+  TEMPORAL_ADDRESS: "temporal.metropolis.svc.cluster.local:7233"
+  TEMPORAL_TASK_QUEUE: "npc-simulation"
