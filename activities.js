@@ -5,6 +5,7 @@ const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
 const { runCognitiveStep } = require('./lib/cognitive-graph');
 const { handleEncounter } = require('./lib/encounter');
+const { publishTelemetry } = require('./lib/telemetry');
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
@@ -234,8 +235,10 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
         }, { merge: true });
         console.log(`[NPC: ${npcId}] State persisted to Firestore at ${currentState.lat}, ${currentState.lng}`);
 
-        // PubSub removed completely to avoid ADC auth crashes locally.
-        // The fallback direct-to-Firestore write ensures persistence.
+        // Publish telemetry event (Pub/Sub if available, local buffer fallback)
+        publishTelemetry(npcId, currentState, currentAction).catch(e =>
+            console.warn(`[NPC: ${npcId}] Telemetry publish failed:`, e.message)
+        );
 
         // Check for interaction status (cognitive collision detection)
         try {
