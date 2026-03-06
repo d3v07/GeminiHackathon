@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spawner
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: metropolis
+    component: spawner
+spec:
+  replicas: {{ .Values.spawner.replicas }}
+  selector:
+    matchLabels:
+      app: metropolis
+      component: spawner
+  template:
+    metadata:
+      labels:
+        app: metropolis
+        component: spawner
+    spec:
+      containers:
+        - name: spawner
+          image: "{{ .Values.image.registry }}/metropolis-spawner:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: metropolis-config
+            - secretRef:
+                name: metropolis-secrets
+          resources:
+            {{- toYaml .Values.spawner.resources | nindent 12 }}
+      restartPolicy: Always

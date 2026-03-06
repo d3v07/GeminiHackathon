@@ -5,6 +5,8 @@ const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
 const { runCognitiveStep } = require('./lib/cognitive-graph');
 const { handleEncounter } = require('./lib/encounter');
+const { publishTelemetry } = require('./lib/telemetry');
+const { encode: geohashEncode, queryNearbyAgents } = require('./lib/geohash');
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
@@ -128,41 +130,9 @@ async function executeToolCall(name, args) {
         }
     } else if (name === 'scan_for_nearby_agents') {
         try {
-            const snapshot = await db.collection('agents').get();
-            const nearbyAgents = [];
-
-            snapshot.forEach(doc => {
-                const other = doc.data();
-                if (other.agentId && other.lat && other.lng) {
-                    // Haversine
-                    const R = 6371e3; // metres
-                    const φ1 = args.lat * Math.PI / 180;
-                    const φ2 = other.lat * Math.PI / 180;
-                    const Δφ = (other.lat - args.lat) * Math.PI / 180;
-                    const Δλ = (other.lng - args.lng) * Math.PI / 180;
-
-                    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                        Math.cos(φ1) * Math.cos(φ2) *
-                        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                    const distance = R * c;
-
-                    if (distance > 10 && distance <= args.radiusMeters) { // Don't return self (distance > 10)
-                        nearbyAgents.push({
-                            id: other.agentId,
-                            role: other.role || 'Unknown Entity',
-                            distanceMeters: Math.round(distance),
-                            lat: other.lat,
-                            lng: other.lng,
-                            currentTask: other.defaultTask || 'Roaming'
-                        });
-                    }
-                }
-            });
+            const nearbyAgents = await queryNearbyAgents(db, args.agentId || '', args.lat, args.lng, args.radiusMeters || 200);
 
             if (nearbyAgents.length > 0) {
-                // Return top 5 closest
-                nearbyAgents.sort((a, b) => a.distanceMeters - b.distanceMeters);
                 return {
                     status: "SUCCESS",
                     message: `Found ${nearbyAgents.length} entities nearby. You can move to their coordinates to intercept them.`,
@@ -225,6 +195,7 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
             agentId: npcId,
             lat: currentState.lat,
             lng: currentState.lng,
+            geohash: geohashEncode(currentState.lat, currentState.lng, 7),
             role: currentState.role || '',
             defaultTask: currentAction,
             sentimentScore: currentState.sentimentScore || 0,
@@ -234,8 +205,10 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
         }, { merge: true });
         console.log(`[NPC: ${npcId}] State persisted to Firestore at ${currentState.lat}, ${currentState.lng}`);
 
-        // PubSub removed completely to avoid ADC auth crashes locally.
-        // The fallback direct-to-Firestore write ensures persistence.
+        // Publish telemetry event (Pub/Sub if available, local buffer fallback)
+        publishTelemetry(npcId, currentState, currentAction).catch(e =>
+            console.warn(`[NPC: ${npcId}] Telemetry publish failed:`, e.message)
+        );
 
         // Check for interaction status (cognitive collision detection)
         try {
