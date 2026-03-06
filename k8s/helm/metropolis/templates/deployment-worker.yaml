@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: metropolis
+    component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      app: metropolis
+      component: worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: metropolis
+        component: worker
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.image.registry }}/metropolis-worker:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: metropolis-config
+            - secretRef:
+                name: metropolis-secrets
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "require('@temporalio/client').Connection.connect({address:process.env.TEMPORAL_ADDRESS}).then(()=>process.exit(0)).catch(()=>process.exit(1))"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "require('@temporalio/client').Connection.connect({address:process.env.TEMPORAL_ADDRESS}).then(()=>process.exit(0)).catch(()=>process.exit(1))"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      terminationGracePeriodSeconds: 60

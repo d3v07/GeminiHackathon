@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: metropolis-ingress
+  namespace: metropolis
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "metropolis-cert"
+    kubernetes.io/ingress.global-static-ip-name: "metropolis-ip"
+spec:
+  rules:
+    - host: metropolis.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
