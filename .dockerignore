@@ -1,0 +1,28 @@
+# Build artifacts
+node_modules/
+.next/
+out/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+orchestrator/.env.local
+firebase-admin-key.json
+
+# OS / IDE
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Logs
+*.log
+pubsub.log
+
+# Agent metadata
+.agent/
+.agents/
+skills-lock.json
+skills.sh
