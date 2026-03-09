@@ -7,6 +7,7 @@ const { runCognitiveStep } = require('./lib/cognitive-graph');
 const { handleEncounter } = require('./lib/encounter');
 const { publishTelemetry } = require('./lib/telemetry');
 const { encode: geohashEncode, queryNearbyAgents } = require('./lib/geohash');
+const { selectModel, MODELS } = require('./lib/model-router');
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
@@ -154,7 +155,7 @@ async function executeToolCall(name, args) {
 async function generateGeminiContent(messages, mcpTools) {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: selectModel({ taskType: 'tool_calling' }),
             contents: messages,
             config: {
                 tools: [{ functionDeclarations: mcpTools }]
@@ -261,7 +262,7 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: selectModel({ taskType: 'encounter' }),
             contents: { role: 'user', parts: [{ text: collisionPrompt }] },
             config: {
                 tools: [{ googleSearch: {} }]
