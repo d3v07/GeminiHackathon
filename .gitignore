@@ -5,5 +5,25 @@ skills.sh
 node_modules/
 .env
 .env.local
+.env.*
 .DS_Store
 firebase-admin-key.json
+
+# Logs
+*.log
+
+# Temp / build artifacts
+.tmp/
+*.diff
+streetview_test.*
+
+# IDE
+.vscode/
+.idea/
+
+# Next.js
+orchestrator/.next/
+orchestrator/out/
+
+# OS
+Thumbs.db

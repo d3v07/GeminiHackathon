@@ -13,6 +13,9 @@ const vertex = new PredictionServiceClient({
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 const LOCATION = 'us-central1';
+
+const GEMINI_FLASH = 'gemini-2.5-flash-preview-05-20';
+const GEMINI_PRO = 'gemini-2.5-pro-preview-05-06';
 const PUBLISHER = 'google';
 const MODEL = 'text-embedding-004';
 
@@ -197,7 +200,7 @@ export async function POST(request: Request) {
             let transcript = "Two agents nod silently as they pass.";
             try {
                 const geminiResponse = await ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
+                    model: GEMINI_PRO,
                     contents: [{ role: 'user', parts: [{ text: prompt }] }]
                 });
                 if (geminiResponse.text) {
