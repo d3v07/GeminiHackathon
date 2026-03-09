@@ -20,6 +20,12 @@ export const TtsSchema = z.object({
 });
 
 export const StreetviewSchema = z.object({
-    lat: z.string().refine((v) => !isNaN(Number(v)) && Number(v) >= -90 && Number(v) <= 90, 'Invalid latitude'),
-    lng: z.string().refine((v) => !isNaN(Number(v)) && Number(v) >= -180 && Number(v) <= 180, 'Invalid longitude'),
+    lat: z.string().trim().min(1, 'Invalid latitude').refine((v) => {
+        const n = Number(v);
+        return !Number.isNaN(n) && n >= -90 && n <= 90;
+    }, 'Invalid latitude'),
+    lng: z.string().trim().min(1, 'Invalid longitude').refine((v) => {
+        const n = Number(v);
+        return !Number.isNaN(n) && n >= -180 && n <= 180;
+    }, 'Invalid longitude'),
 });
