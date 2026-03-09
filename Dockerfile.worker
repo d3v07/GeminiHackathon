@@ -19,8 +19,9 @@ RUN chown -R app:app /app
 USER app
 
 ENV NODE_ENV=production
+EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "require('@temporalio/client').Connection.connect({address:process.env.TEMPORAL_ADDRESS||'localhost:7233'}).then(()=>process.exit(0)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -qO- http://localhost:8080/ || exit 1
 
 CMD ["node", "worker.js"]
