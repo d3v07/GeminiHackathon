@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import textToSpeech from '@google-cloud/text-to-speech';
+import { TtsSchema } from '@/lib/schemas';
 
 // Initialize the TTS Client
 // It expects GOOGLE_APPLICATION_CREDENTIALS in a standard environment,
@@ -23,14 +24,14 @@ const VOICE_MAP: Record<string, { languageCode: string, name: string }> = {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { text, role } = body;
-
-        if (!text) {
-            return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+        const parsed = TtsSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
+        const { text, role } = parsed.data;
 
         // Default to a standard voice if the role is unknown
-        const voiceConfig = VOICE_MAP[role] || { languageCode: 'en-US', name: 'en-US-Neural2-F' };
+        const voiceConfig = (role && VOICE_MAP[role]) || { languageCode: 'en-US', name: 'en-US-Neural2-F' };
 
         // Construct the request
         const request = {

@@ -4,6 +4,7 @@ import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import language from '@google-cloud/language';
 import { adminDb } from '@/lib/firebase-admin';
+import { InteractSchema } from '@/lib/schemas';
 
 // Phase 4 Security: AegisAgent prompt defense
 const { aegisGuard, scanOutput } = require('../../../../lib/aegis-agent');
@@ -34,11 +35,11 @@ const nlpClient = new language.LanguageServiceClient({
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { agentId, message, role } = body;
-
-        if (!agentId || !message) {
-            return NextResponse.json({ error: 'Missing agentId or message' }, { status: 400 });
+        const parsed = InteractSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
+        const { agentId, message, role } = parsed.data;
 
         // Phase 4: AegisAgent — scan for prompt injection
         const aegisResult = aegisGuard(message, { maxChars: 2000, logThreats: true });
