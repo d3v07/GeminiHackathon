@@ -1,0 +1,23 @@
+# Default — both owners review everything
+* @d3v07 @kushyarwar
+
+# Backend / simulation engine
+/activities.js          @d3v07
+/worker.js              @d3v07
+/workflows.js           @d3v07
+/spawn-agents.js        @d3v07
+/npc_agent.js           @d3v07
+/lib/                   @d3v07
+
+# Infrastructure
+/docker-compose.yml     @d3v07
+/Dockerfile.*           @d3v07
+/k8s/                   @d3v07
+
+# Frontend / orchestrator
+/orchestrator/src/components/  @kushyarwar
+/orchestrator/src/app/page.tsx @kushyarwar
+
+# Shared orchestrator (both review)
+/orchestrator/src/app/api/     @d3v07 @kushyarwar
+/orchestrator/src/lib/         @d3v07 @kushyarwar
