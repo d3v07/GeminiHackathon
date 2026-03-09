@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { GoogleGenAI } from '@google/genai';
 import { LanguageServiceClient } from '@google-cloud/language';
 import { PredictionServiceClient } from '@google-cloud/aiplatform';
+import { OrchestratorSchema } from '@/lib/schemas';
 
 // Init AI Clients
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' });
@@ -66,11 +67,12 @@ function deg2rad(deg: number) {
 
 export async function POST(request: Request) {
     try {
-        const { agentId, lat, lng, defaultTask, memoryContext } = await request.json();
-
-        if (!agentId || lat === undefined || lng === undefined) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        const body = await request.json();
+        const parsed = OrchestratorSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
+        const { agentId, lat, lng, defaultTask, memoryContext } = parsed.data;
 
         const INTERACTION_RADIUS_METERS = 50; // Detect if within 50 meters
 

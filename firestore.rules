@@ -1,8 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Agents collection: client can read, only admin SDK can write
+    match /agents/{agentId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Encounters collection: client can read, only admin SDK can write
+    match /encounters/{encounterId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deny everything else by default
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
