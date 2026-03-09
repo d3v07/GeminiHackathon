@@ -126,7 +126,16 @@ async function run() {
 
     console.log(`Starting Spawner... Dispatching ${npcsToSpawn.length} Temporal Workflows.`);
 
-    for (const npc of npcsToSpawn) {
+    const demoMode = process.env.DEMO_MODE === 'true';
+    const agentsToSpawn = demoMode
+        ? npcsToSpawn.filter(n => ['Underground Historian', 'Harlem Jazz Musician', 'Late Night Slice Critic'].includes(n.role))
+        : npcsToSpawn;
+
+    if (demoMode) {
+        console.log(`[DEMO MODE] Spawning ${agentsToSpawn.length} agents only (skipping swarms).`);
+    }
+
+    for (const npc of agentsToSpawn) {
         // Deterministic ID allows agents to recover state across engine cycles
         const npcId = `npc-${npc.role.replace(/\s+/g, '-').toLowerCase()}`;
 
@@ -165,6 +174,9 @@ async function run() {
     }
 
     // Phase 17: Spawn Sub-Character Swarms
+    if (demoMode) {
+        console.log(`[DEMO MODE] Skipping swarm spawning.`);
+    } else {
     const swarmConfigs = [
         { parentRole: "Chinatown Restaurant Owner", swarmRole: "Hungry Customer", count: 10, offset: 0.002 },
         { parentRole: "Central Park Dog Walker", swarmRole: "Fellow Dog Walker", count: 10, offset: 0.003 },
@@ -221,6 +233,9 @@ async function run() {
     }
 
     console.log('\nAll primary agents and Ripple Effect swarms spawned successfully! They are now running autonomously.');
+    } // end else (demoMode skip)
+
+    console.log(demoMode ? '\n[DEMO MODE] Demo agents spawned.' : '\nFull deployment complete.');
 }
 
 run().catch((err) => {

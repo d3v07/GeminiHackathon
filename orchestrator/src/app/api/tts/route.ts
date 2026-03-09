@@ -15,9 +15,21 @@ const client = new textToSpeech.TextToSpeechClient({
 
 // A map to give each Agent a distinct, recognizable voice
 const VOICE_MAP: Record<string, { languageCode: string, name: string }> = {
-    "Underground Historian": { languageCode: 'en-US', name: 'en-US-Journey-D' }, // Deep, slightly older sounding
-    "1920s Prohibition Ghost": { languageCode: 'en-GB', name: 'en-GB-Studio-C' }, // Ethereal, transatlantic-ish British accent
-    "Stressed Wall Street Broker": { languageCode: 'en-US', name: 'en-US-Journey-F' }, // Fast-talking, energetic
+    "Underground Historian": { languageCode: 'en-US', name: 'en-US-Journey-D' },
+    "1920s Prohibition Ghost": { languageCode: 'en-GB', name: 'en-GB-Studio-C' },
+    "Stressed Wall Street Broker": { languageCode: 'en-US', name: 'en-US-Journey-F' },
+    "Harlem Jazz Musician": { languageCode: 'en-US', name: 'en-US-Studio-M' },
+    "Brooklyn Tech Startup Founder": { languageCode: 'en-US', name: 'en-US-Neural2-J' },
+    "Chinatown Restaurant Owner": { languageCode: 'en-US', name: 'en-US-Neural2-D' },
+    "Central Park Dog Walker": { languageCode: 'en-US', name: 'en-US-Journey-O' },
+    "Times Square Street Performer": { languageCode: 'en-US', name: 'en-US-Studio-Q' },
+    "Rogue AI Terminal": { languageCode: 'en-US', name: 'en-US-Neural2-A' },
+    "Time-Displaced Tourist 1985": { languageCode: 'en-US', name: 'en-US-Neural2-I' },
+    "Aggressively Positive Yoga Instructor": { languageCode: 'en-US', name: 'en-US-Journey-F' },
+    "Late Night Slice Critic": { languageCode: 'en-US', name: 'en-US-Neural2-H' },
+    "Grumbling Sanitation Worker": { languageCode: 'en-US', name: 'en-US-Neural2-D' },
+    "High Society Socialite": { languageCode: 'en-GB', name: 'en-GB-Studio-B' },
+    "Undercover Pigeon Informant": { languageCode: 'en-US', name: 'en-US-Neural2-C' },
     "Unknown Encountee": { languageCode: 'en-US', name: 'en-US-Neural2-A' }
 };
 
