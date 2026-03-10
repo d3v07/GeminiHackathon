@@ -4,6 +4,7 @@ const { Connection, Client } = require('@temporalio/client');
 const admin = require('firebase-admin');
 
 const fs = require('fs');
+const logger = require('./lib/logger').child({ service: 'spawner' });
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 try {
@@ -124,7 +125,7 @@ async function run() {
         }
     ];
 
-    console.log(`Starting Spawner... Dispatching ${npcsToSpawn.length} Temporal Workflows.`);
+    logger.info({ count: npcsToSpawn.length }, 'Starting Spawner, dispatching Temporal Workflows');
 
     const demoMode = process.env.DEMO_MODE === 'true';
     const agentsToSpawn = demoMode
@@ -132,7 +133,7 @@ async function run() {
         : npcsToSpawn;
 
     if (demoMode) {
-        console.log(`[DEMO MODE] Spawning ${agentsToSpawn.length} agents only (skipping swarms).`);
+        logger.info({ count: agentsToSpawn.length }, 'Demo mode: spawning limited agents, skipping swarms');
     }
 
     for (const npc of agentsToSpawn) {
@@ -148,7 +149,7 @@ async function run() {
                 if (data.lat && data.lng) {
                     initialState.lat = data.lat;
                     initialState.lng = data.lng;
-                    console.log(`[State Recovery] ${npcId} resumed at ${data.lat}, ${data.lng}`);
+                    logger.info({ npcId, lat: data.lat, lng: data.lng }, 'State recovered, resuming agent');
                 }
                 if (data.memoryContext) {
                     try {
@@ -158,7 +159,7 @@ async function run() {
                 }
             }
         } catch (err) {
-            console.log(`Could not fetch state for ${npcId}, spawning fresh.`);
+            logger.warn({ npcId }, 'Could not fetch state, spawning fresh');
         }
 
         try {
@@ -167,15 +168,15 @@ async function run() {
                 workflowId: npcId,
                 args: [npcId, initialState, npc.instruction],
             });
-            console.log(`[Spawned Workflow] ${npcId} -> Role: ${npc.role}`);
+            logger.info({ npcId, role: npc.role }, 'Workflow spawned');
         } catch (e) {
-            console.log(`[Already Running] ${npcId} -> Role: ${npc.role}`);
+            logger.info({ npcId, role: npc.role }, 'Workflow already running');
         }
     }
 
     // Phase 17: Spawn Sub-Character Swarms
     if (demoMode) {
-        console.log(`[DEMO MODE] Skipping swarm spawning.`);
+        logger.info('Demo mode: skipping swarm spawning');
     } else {
     const swarmConfigs = [
         { parentRole: "Chinatown Restaurant Owner", swarmRole: "Hungry Customer", count: 10, offset: 0.002 },
@@ -183,7 +184,7 @@ async function run() {
         { parentRole: "Stressed Wall Street Broker", swarmRole: "Panicking Intern", count: 10, offset: 0.001 }
     ];
 
-    console.log(`\nInitializing Ripple Effect Swarms...`);
+    logger.info('Initializing Ripple Effect Swarms');
     for (const config of swarmConfigs) {
         const parentNpc = npcsToSpawn.find(n => n.role === config.parentRole);
         if (!parentNpc) continue;
@@ -225,20 +226,20 @@ async function run() {
                     workflowId: swarmId,
                     args: [swarmId, initialState, instruction],
                 });
-                console.log(`[Spawned Swarm Entity] ${swarmId} orbiting ${config.parentRole}`);
+                logger.info({ swarmId, parentRole: config.parentRole }, 'Swarm entity spawned');
             } catch (e) {
-                console.log(`[Already Running Swarm] ${swarmId} orbiting ${config.parentRole}`);
+                logger.info({ swarmId, parentRole: config.parentRole }, 'Swarm entity already running');
             }
         }
     }
 
-    console.log('\nAll primary agents and Ripple Effect swarms spawned successfully! They are now running autonomously.');
+    logger.info('All primary agents and Ripple Effect swarms spawned successfully');
     } // end else (demoMode skip)
 
-    console.log(demoMode ? '\n[DEMO MODE] Demo agents spawned.' : '\nFull deployment complete.');
+    logger.info(demoMode ? 'Demo agents spawned' : 'Full deployment complete');
 }
 
 run().catch((err) => {
-    console.error(err);
+    logger.error({ err }, 'Spawner failed');
     process.exit(1);
 });
