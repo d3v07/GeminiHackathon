@@ -1,6 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface Agent {
     id: string;
@@ -23,11 +25,14 @@ interface Encounter {
     sentimentScore?: number;
 }
 
+type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+
 interface SimulationState {
     agents: Agent[];
     encounters: Encounter[];
     isLoading: boolean;
     error: string | null;
+    connectionStatus: ConnectionStatus;
 }
 
 const SimulationContext = createContext<SimulationState>({
@@ -35,6 +40,7 @@ const SimulationContext = createContext<SimulationState>({
     encounters: [],
     isLoading: true,
     error: null,
+    connectionStatus: 'connecting',
 });
 
 export function SimulationProvider({ children, enabled = true }: { children: React.ReactNode; enabled?: boolean }) {
@@ -42,39 +48,72 @@ export function SimulationProvider({ children, enabled = true }: { children: Rea
     const [encounters, setEncounters] = useState<Encounter[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
     const isMounted = useRef(true);
-
-    const fetchState = useCallback(async () => {
-        if (!enabled) return;
-        try {
-            const res = await fetch('/api/state');
-            if (!res.ok) throw new Error(`State API returned ${res.status}`);
-            const data = await res.json();
-            if (!isMounted.current) return;
-            setAgents(data.agents ?? []);
-            setEncounters(data.encounters ?? []);
-            setError(null);
-            setIsLoading(false);
-        } catch (e: any) {
-            if (!isMounted.current) return;
-            console.error('SimulationContext poll error:', e);
-            setError(e.message ?? 'Failed to fetch simulation state');
-            setIsLoading(false);
-        }
-    }, [enabled]);
 
     useEffect(() => {
         isMounted.current = true;
-        fetchState();
-        const interval = setInterval(fetchState, 1500);
+
+        if (!enabled) {
+            setConnectionStatus('disconnected');
+            return;
+        }
+
+        setConnectionStatus('connecting');
+
+        // Real-time listener for agents collection
+        const agentsRef = collection(db, 'agents');
+        const unsubAgents = onSnapshot(
+            agentsRef,
+            (snapshot) => {
+                if (!isMounted.current) return;
+                const agentData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                } as Agent));
+                setAgents(agentData);
+                setConnectionStatus('connected');
+                setError(null);
+                setIsLoading(false);
+            },
+            (err) => {
+                if (!isMounted.current) return;
+                console.error('Firestore agents listener error:', err);
+                setConnectionStatus('disconnected');
+                setError(err.message ?? 'Lost connection to Firestore');
+                setIsLoading(false);
+            }
+        );
+
+        // Real-time listener for encounters collection (latest 50)
+        const encountersRef = collection(db, 'encounters');
+        const encountersQuery = query(encountersRef, orderBy('timestamp', 'desc'), limit(50));
+        const unsubEncounters = onSnapshot(
+            encountersQuery,
+            (snapshot) => {
+                if (!isMounted.current) return;
+                const encounterData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                } as Encounter));
+                setEncounters(encounterData);
+            },
+            (err) => {
+                if (!isMounted.current) return;
+                console.error('Firestore encounters listener error:', err);
+                // Don't override agent connection status if encounters fail separately
+            }
+        );
+
         return () => {
             isMounted.current = false;
-            clearInterval(interval);
+            unsubAgents();
+            unsubEncounters();
         };
-    }, [fetchState]);
+    }, [enabled]);
 
     return (
-        <SimulationContext.Provider value={{ agents, encounters, isLoading, error }}>
+        <SimulationContext.Provider value={{ agents, encounters, isLoading, error, connectionStatus }}>
             {children}
         </SimulationContext.Provider>
     );
