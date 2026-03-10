@@ -140,3 +140,54 @@ TEMPORAL_ADDRESS=localhost:7233 DEMO_MODE=true node spawn-agents.js
 ## License
 
 See [LICENSE](LICENSE).
+
+## Observability
+
+### Structured Logging
+
+All backend services use [pino](https://github.com/pinojs/pino) for JSON-structured logging.
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `LOG_LEVEL` | `info` | Log level (trace/debug/info/warn/error/fatal) |
+| `SERVICE_NAME` | `metropolis` | Service name in log output |
+
+### LangSmith Tracing
+
+The cognitive graph (`lib/cognitive-graph.js`) uses LangGraph's `StateGraph`, which auto-instruments with LangSmith when env vars are set. Encounter dialogue (`lib/encounter.js`) is manually wrapped with `traceable`.
+
+| Env Var | Description |
+|---------|-------------|
+| `LANGCHAIN_TRACING_V2` | Set to `true` to enable |
+| `LANGCHAIN_API_KEY` | Your LangSmith API key |
+| `LANGCHAIN_PROJECT` | Project name (default: `metropolis`) |
+
+Dashboard: [smith.langchain.com](https://smith.langchain.com)
+
+### Prometheus Metrics
+
+Worker exposes metrics on port **9090** at `/metrics`.
+
+```bash
+curl http://localhost:9090/metrics | grep -E "^(cognitive|gemini|tool|encounter)"
+```
+
+Key metrics: `cognitive_steps_total`, `cognitive_step_duration_seconds`, `tool_calls_total`, `gemini_tokens_total`, `gemini_calls_total`, `encounters_total`, `active_workflows`.
+
+### Token Cost Tracking
+
+`lib/cost.js` calculates per-call costs using Gemini pricing. A budget guard in `activities.js` warns when an agent exceeds `AGENT_COST_LIMIT_HOURLY` (default $0.50/hr).
+
+### Metrics API
+
+`GET /api/metrics` returns aggregated system health:
+
+```json
+{ "agents": 15, "encountersToday": 42, "tokens": { "input": 12500, "output": 3200 }, "geminiCalls": 87 }
+```
+
+### Integration Test
+
+```bash
+node scripts/obs-integration-test.js [worker_url] [frontend_url]
+```
