@@ -18,7 +18,7 @@ export default function ControlPanel({
     onSimulateKill: () => void;
     onRestart: () => void;
 }) {
-    const { agents, encounters } = useSimulation();
+    const { agents, encounters, isLoading, connectionStatus } = useSimulation();
     const [logs, setLogs] = useState<string[]>([]);
     const [isServerDead, setIsServerDead] = useState(false);
 
@@ -89,27 +89,27 @@ export default function ControlPanel({
             const newAgentsData = agents;
             const newEncounters = encounters;
 
-                // Compute differences for logs
-                newAgentsData.forEach((agent: any) => {
-                    const agentId = agent.id;
-                    const oldAgent = prevAgentsRef.current[agentId];
-                    const newAgent = agent;
+            // Compute differences for logs
+            newAgentsData.forEach((agent: any) => {
+                const agentId = agent.id;
+                const oldAgent = prevAgentsRef.current[agentId];
+                const newAgent = agent;
 
-                    if (!oldAgent) {
-                        setLogs(prev => [...prev.slice(-15), `[CLOUD] Agent ${agentId} online. Role: ${newAgent.role || 'GCP Entity'}`]);
-                    } else if (JSON.stringify(oldAgent) !== JSON.stringify(newAgent)) {
-                        // Modified
-                        if (newAgent.isInteracting && newAgent.lastEncounterDialogue && newAgent.lastEncounterDialogue !== lastProcessedEncounter.current) {
-                            setLogs(prev => [...prev.slice(-15), `[SENTIMENT] Analyzing: "${newAgent.lastEncounterDialogue.substring(0, 30)}..."`, `[DIALOGUE] ${agentId}: ${newAgent.lastEncounterDialogue}`]);
-                            lastProcessedEncounter.current = newAgent.lastEncounterDialogue;
-                            fetchAndQueueTTS(newAgent.lastEncounterDialogue, newAgent.role || "Unknown");
-                        } else if (!newAgent.isInteracting && oldAgent.defaultTask !== newAgent.defaultTask) {
-                            setLogs(prev => [...prev.slice(-15), `[LOG] ${agentId} Action: ${newAgent.defaultTask?.substring(0, 40) || 'Moving...'}`]);
-                        }
+                if (!oldAgent) {
+                    setLogs(prev => [...prev.slice(-15), `[CLOUD] Agent ${agentId} online. Role: ${newAgent.role || 'GCP Entity'}`]);
+                } else if (JSON.stringify(oldAgent) !== JSON.stringify(newAgent)) {
+                    // Modified
+                    if (newAgent.isInteracting && newAgent.lastEncounterDialogue && newAgent.lastEncounterDialogue !== lastProcessedEncounter.current) {
+                        setLogs(prev => [...prev.slice(-15), `[SENTIMENT] Analyzing: "${newAgent.lastEncounterDialogue.substring(0, 30)}..."`, `[DIALOGUE] ${agentId}: ${newAgent.lastEncounterDialogue}`]);
+                        lastProcessedEncounter.current = newAgent.lastEncounterDialogue;
+                        fetchAndQueueTTS(newAgent.lastEncounterDialogue, newAgent.role || "Unknown");
+                    } else if (!newAgent.isInteracting && oldAgent.defaultTask !== newAgent.defaultTask) {
+                        setLogs(prev => [...prev.slice(-15), `[LOG] ${agentId} Action: ${newAgent.defaultTask?.substring(0, 40) || 'Moving...'}`]);
                     }
+                }
 
-                    prevAgentsRef.current[agentId] = { ...newAgent };
-                });
+                prevAgentsRef.current[agentId] = { ...newAgent };
+            });
         }
     }, [agents, encounters, isServerDead]);
 
@@ -126,20 +126,23 @@ export default function ControlPanel({
     };
 
     return (
-        <div className="w-full h-full bg-[#030406] text-white flex flex-col p-8 overflow-hidden relative">
+        <div className="w-full h-full bg-[#030406] text-white flex flex-col p-4 md:p-8 overflow-hidden relative">
             {/* Background Ambience */}
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-sky-500/5 blur-[100px] rounded-full pointer-events-none"></div>
 
             {/* Header */}
-            <div className="flex items-end justify-between mb-8 relative z-10">
+            <div className="flex items-end justify-between mb-4 md:mb-8 relative z-10">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+                    <h1 className="text-xl md:text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
                         METROPOLIS <span className="text-emerald-500 text-[10px] bg-emerald-500/10 px-2 py-1 rounded ml-2 border border-emerald-500/20 align-middle">CORE v4.0</span>
                     </h1>
                     <p className="text-[11px] text-gray-500 font-mono tracking-widest mt-2 uppercase flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
-                        Durable Agentic Workflow Repository
+                        <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${connectionStatus === 'connected' ? 'bg-emerald-500 animate-pulse'
+                            : connectionStatus === 'connecting' ? 'bg-amber-500 animate-pulse'
+                                : 'bg-rose-500'
+                            }`}></span>
+                        {connectionStatus === 'connected' ? 'Firestore Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -155,14 +158,14 @@ export default function ControlPanel({
             </div>
 
             {/* LIVE GLOBAL STATS */}
-            <div className="grid grid-cols-3 gap-5 mb-8 relative z-10">
+            <div className="grid grid-cols-3 gap-3 md:gap-5 mb-4 md:mb-8 relative z-10">
                 <div className="bg-gradient-to-br from-gray-900/60 to-black/60 border border-emerald-500/20 rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 blur-xl group-hover:bg-emerald-500/20 transition-colors"></div>
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
                         Active Entities
                     </span>
-                    <span className="text-4xl font-black text-emerald-400 font-mono tracking-tighter">{activeAgents.toString().padStart(2, '0')}</span>
+                    <span className="text-4xl font-black text-emerald-400 font-mono tracking-tighter">{isLoading ? <span className="inline-block w-12 h-9 bg-gray-800 rounded animate-pulse"></span> : activeAgents.toString().padStart(2, '0')}</span>
                 </div>
                 <div className="bg-gradient-to-br from-gray-900/60 to-black/60 border border-sky-500/20 rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-sky-500/10 blur-xl group-hover:bg-sky-500/20 transition-colors"></div>
@@ -170,7 +173,7 @@ export default function ControlPanel({
                         <div className="w-1.5 h-1.5 bg-sky-500 rounded-full"></div>
                         Cognitive Collisions
                     </span>
-                    <span className="text-4xl font-black text-sky-400 font-mono tracking-tighter">{totalEncounters.toString().padStart(3, '0')}</span>
+                    <span className="text-4xl font-black text-sky-400 font-mono tracking-tighter">{isLoading ? <span className="inline-block w-14 h-9 bg-gray-800 rounded animate-pulse"></span> : totalEncounters.toString().padStart(3, '0')}</span>
                 </div>
                 <div className="bg-gradient-to-br from-gray-900/60 to-black/60 border border-amber-500/20 rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 blur-xl group-hover:bg-amber-500/20 transition-colors"></div>
@@ -179,7 +182,7 @@ export default function ControlPanel({
                         Global Mood Index
                     </span>
                     <span className={`text-4xl font-black font-mono tracking-tighter ${avgSentiment > 0.1 ? 'text-emerald-400' : avgSentiment < -0.1 ? 'text-rose-400' : 'text-amber-400'}`}>
-                        {avgSentiment > 0 ? '+' : ''}{avgSentiment.toFixed(2)}
+                        {isLoading ? <span className="inline-block w-16 h-9 bg-gray-800 rounded animate-pulse"></span> : <>{avgSentiment > 0 ? '+' : ''}{avgSentiment.toFixed(2)}</>}
                     </span>
                 </div>
             </div>
