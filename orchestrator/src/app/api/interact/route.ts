@@ -7,8 +7,8 @@ import { adminDb } from '@/lib/firebase-admin';
 import { InteractSchema } from '@/lib/schemas';
 
 // Phase 4 Security: AegisAgent prompt defense
-const { aegisGuard, scanOutput } = require('../../../../lib/aegis-agent');
-const { redactPII } = require('../../../../lib/pii-redactor');
+const { aegisGuard, scanOutput } = require('../../../../../lib/aegis-agent');
+const { redactPII } = require('../../../../../lib/pii-redactor');
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 let geminiKey = process.env.GEMINI_API_KEY || '';

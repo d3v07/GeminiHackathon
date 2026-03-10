@@ -61,7 +61,7 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
 };
 
 export default function MapUI() {
-    const { agents } = useSimulation();
+    const { agents, isLoading, error, connectionStatus } = useSimulation();
     const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
     const [commMessage, setCommMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -113,21 +113,61 @@ export default function MapUI() {
     return (
         <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
             <div className="w-full h-full relative border-r border-gray-800 bg-[#05070a] overflow-hidden flex">
-                {/* Enterprise GCP Status Indicators */}
-                <div className="absolute top-6 left-6 z-10 flex flex-col gap-3 pointer-events-none">
-                    <div className="flex items-center gap-3 bg-black/80 backdrop-blur-xl px-4 py-2 rounded border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-[11px] font-mono text-emerald-400">
-                        <div className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                {/* Loading Overlay */}
+                {isLoading && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#05070a]/90 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest animate-pulse">Connecting to Firestore...</span>
                         </div>
-                        <span>BIGQUERY STREAM: ACTIVE</span>
                     </div>
-                    <div className="flex items-center gap-3 bg-black/80 backdrop-blur-xl px-4 py-2 rounded border border-sky-500/40 shadow-[0_0_15px_rgba(14,165,233,0.2)] text-[11px] font-mono text-sky-400">
-                        <div className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
+                )}
+
+                {/* Error Overlay */}
+                {error && !isLoading && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#05070a]/90 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-4 max-w-xs text-center">
+                            <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+                                <span className="text-xl">⚡</span>
+                            </div>
+                            <p className="text-[12px] font-mono text-rose-400">{error}</p>
+                            <span className="text-[10px] text-gray-600">Attempting to reconnect...</span>
                         </div>
-                        <span>NLP SENTIMENT: LIVE</span>
+                    </div>
+                )}
+
+                {/* Live Connection Status Indicators */}
+                <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 flex flex-col gap-2 md:gap-3 pointer-events-none">
+                    <div className={`flex items-center gap-2 md:gap-3 bg-black/80 backdrop-blur-xl px-3 py-1.5 md:px-4 md:py-2 rounded border shadow-lg text-[10px] md:text-[11px] font-mono transition-colors duration-500 ${connectionStatus === 'connected'
+                        ? 'border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-emerald-400'
+                        : connectionStatus === 'connecting'
+                            ? 'border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)] text-amber-400'
+                            : 'border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.2)] text-rose-400'
+                        }`}>
+                        <div className="relative flex h-2.5 w-2.5">
+                            {connectionStatus !== 'disconnected' && (
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${connectionStatus === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'
+                                    }`}></span>
+                            )}
+                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${connectionStatus === 'connected' ? 'bg-emerald-500'
+                                : connectionStatus === 'connecting' ? 'bg-amber-500'
+                                    : 'bg-rose-500'
+                                }`}></span>
+                        </div>
+                        <span>FIRESTORE: {connectionStatus === 'connected' ? 'LIVE' : connectionStatus === 'connecting' ? 'CONNECTING' : 'OFFLINE'}</span>
+                    </div>
+                    <div className={`flex items-center gap-2 md:gap-3 bg-black/80 backdrop-blur-xl px-3 py-1.5 md:px-4 md:py-2 rounded border shadow-lg text-[10px] md:text-[11px] font-mono transition-colors duration-500 ${connectionStatus === 'connected'
+                        ? 'border-sky-500/40 shadow-[0_0_15px_rgba(14,165,233,0.2)] text-sky-400'
+                        : 'border-gray-700 text-gray-600'
+                        }`}>
+                        <div className="relative flex h-2.5 w-2.5">
+                            {connectionStatus === 'connected' && (
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                            )}
+                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${connectionStatus === 'connected' ? 'bg-sky-500' : 'bg-gray-600'
+                                }`}></span>
+                        </div>
+                        <span>NLP SENTIMENT: {connectionStatus === 'connected' ? 'ACTIVE' : 'STANDBY'}</span>
                     </div>
                 </div>
 
@@ -172,7 +212,7 @@ export default function MapUI() {
 
                 {/* NPC DETAIL PANEL */}
                 {selectedAgent && (
-                    <div className="w-96 h-full bg-gradient-to-b from-[#0a0a0f] to-[#040406] border-l border-gray-800 p-8 flex flex-col overflow-y-auto z-20 shadow-2xl animate-in slide-in-from-right duration-500 ease-out relative">
+                    <div className="w-full md:w-96 h-full bg-gradient-to-b from-[#0a0a0f] to-[#040406] border-l border-gray-800 p-4 md:p-8 flex flex-col overflow-y-auto z-20 shadow-2xl animate-in slide-in-from-right duration-500 ease-out relative">
                         <button onClick={() => setSelectedAgent(null)} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition-all">✕</button>
 
                         <div className="mb-8">
