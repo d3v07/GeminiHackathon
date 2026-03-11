@@ -4,6 +4,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
 import { useSimulation } from '@/lib/SimulationContext';
 import dynamic from 'next/dynamic';
+import ExploreMode from './ExploreMode';
+import ShortcutModal from './ShortcutModal';
+import { useShortcuts } from '@/hooks/useShortcuts';
+import { useAudioTTS } from '@/hooks/useAudioTTS';
 
 const SocialGraph = dynamic(() => import('./SocialGraph'), {
     ssr: false,
@@ -82,6 +86,58 @@ export default function MapUI() {
     
     // View Modes
     const [showSocialGraph, setShowSocialGraph] = useState(false);
+    const [showExploreMode, setShowExploreMode] = useState(false);
+    const [showShortcuts, setShowShortcuts] = useState(false);
+
+    // Audio TTS config
+    const [audioVolume, setAudioVolume] = useState(0.8);
+    const { speak, currentSpeakerId } = useAudioTTS({ volume: audioVolume });
+
+    // Controlled Map State
+    const [mapCenter, setMapCenter] = useState(NYC_CENTER);
+
+    useEffect(() => {
+        const handleJump = (e: any) => {
+            if (e.detail?.lat && e.detail?.lng) {
+                setMapCenter({ lat: e.detail.lat, lng: e.detail.lng });
+                // If in social graph, switch back to map view
+                setShowSocialGraph(false);
+                setShowExploreMode(false);
+            }
+        };
+        window.addEventListener('map-jump', handleJump as EventListener);
+        return () => window.removeEventListener('map-jump', handleJump as EventListener);
+    }, []);
+
+    // Global Actions
+    const handleTogglePlay = async () => {
+        try {
+            const res = await fetch('/api/simulation/status');
+            const data = await res.json();
+            await fetch('/api/simulation/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: data.status === 'paused' ? 'resume' : 'pause' })
+            });
+        } catch (e) {
+            console.error("Failed to toggle simulation status", e);
+        }
+    };
+
+    useShortcuts({
+        'Escape': () => setSelectedAgent(null),
+        'e': () => { setShowExploreMode(prev => !prev); setShowSocialGraph(false); },
+        'g': () => { setShowSocialGraph(prev => !prev); setShowExploreMode(false); },
+        ' ': handleTogglePlay,
+        'f': () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen();
+            }
+        },
+        '?': () => setShowShortcuts(prev => !prev)
+    });
 
     // Keep selectedAgent position in sync with latest data from context
     useEffect(() => {
@@ -114,6 +170,18 @@ export default function MapUI() {
 
         fetchDetails();
     }, [selectedAgent?.id]);
+
+    // TTS Auto-play logic
+    const prevDialogRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (selectedAgent && selectedAgent.lastEncounterDialogue !== prevDialogRef.current) {
+            prevDialogRef.current = selectedAgent.lastEncounterDialogue;
+            if (selectedAgent.lastEncounterDialogue && prevDialogRef.current) {
+                // Pass agent role as voice mapping hint the backend might use
+                speak(selectedAgent.lastEncounterDialogue, selectedAgent.id, selectedAgent.role);
+            }
+        }
+    }, [selectedAgent?.lastEncounterDialogue, selectedAgent?.id, selectedAgent?.role, speak]);
 
     const getMoodColor = (score: number = 0) => {
         if (score > 0.3) return 'bg-emerald-500'; // Happy
@@ -227,10 +295,23 @@ export default function MapUI() {
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex flex-col items-end gap-2">
                     <div className="flex gap-2">
                         <button 
-                            onClick={() => setShowSocialGraph(!showSocialGraph)}
+                            onClick={() => { setShowExploreMode(!showExploreMode); setShowSocialGraph(false); }}
+                            className={`bg-black/80 backdrop-blur border px-3 py-1.5 rounded transition-colors font-mono text-xs shadow-lg flex items-center gap-2 ${showExploreMode ? 'border-amber-500 text-amber-400 font-bold' : 'border-gray-700 hover:border-amber-500/50 text-gray-400 hover:text-amber-400'}`}
+                        >
+                            {showExploreMode ? '👁 EXIT EXPLORE' : '🚶 EXPLORE'}
+                        </button>
+                        <button 
+                            onClick={() => { setShowSocialGraph(!showSocialGraph); setShowExploreMode(false); }}
                             className={`bg-black/80 backdrop-blur border px-3 py-1.5 rounded transition-colors font-mono text-xs shadow-lg flex items-center gap-2 ${showSocialGraph ? 'border-indigo-500 text-indigo-400 font-bold' : 'border-gray-700 hover:border-indigo-500/50 text-gray-400 hover:text-indigo-400'}`}
                         >
                             {showSocialGraph ? '🌐 MAP VIEW' : '🕸 SOCIAL GRAPH'}
+                        </button>
+                        <button 
+                            onClick={() => setShowShortcuts(true)}
+                            className="bg-black/80 backdrop-blur border border-gray-700 hover:border-white/50 text-gray-400 hover:text-white px-2 py-1.5 rounded transition-colors font-mono text-xs shadow-lg"
+                            title="Keyboard Shortcuts (?)"
+                        >
+                            ?
                         </button>
                         <button 
                             onClick={() => setShowFilters(!showFilters)}
@@ -271,6 +352,18 @@ export default function MapUI() {
                                     className="accent-rose-500"
                                 />
                             </div>
+                            <div className="flex flex-col gap-1.5 mt-2 pt-3 border-t border-gray-800">
+                                <label className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold flex justify-between">
+                                    <span>TTS Volume</span>
+                                    <span>{Math.round(audioVolume * 100)}%</span>
+                                </label>
+                                <input 
+                                    type="range" min="0" max="1" step="0.1" 
+                                    value={audioVolume} 
+                                    onChange={e => setAudioVolume(parseFloat(e.target.value))}
+                                    className="accent-indigo-500"
+                                />
+                            </div>
                             <button 
                                 onClick={() => { setSearchQuery(''); setMinSentiment(-1); setMaxSentiment(1); }}
                                 className="mt-2 text-[9px] uppercase tracking-widest text-gray-500 hover:text-white border border-gray-800 rounded py-1 transition-colors"
@@ -282,7 +375,16 @@ export default function MapUI() {
                 </div>
 
                 <div className="flex-1 relative">
-                    {showSocialGraph ? (
+                    {showExploreMode ? (
+                        <div className="w-full h-full bg-black">
+                            <ExploreMode 
+                                initialLat={selectedAgent ? Number(selectedAgent.lat) : NYC_CENTER.lat}
+                                initialLng={selectedAgent ? Number(selectedAgent.lng) : NYC_CENTER.lng}
+                                agents={filteredAgents}
+                                onAgentNear={(agent) => setSelectedAgent(agent)}
+                            />
+                        </div>
+                    ) : showSocialGraph ? (
                         <div className="w-full h-full bg-black">
                             <SocialGraph onNodeClick={(id) => {
                                 const agent = agents.find(a => a.id === id);
@@ -292,7 +394,8 @@ export default function MapUI() {
                     ) : (
                         <Map
                             defaultZoom={14}
-                            defaultCenter={NYC_CENTER}
+                            center={mapCenter}
+                            onCenterChanged={(e) => setMapCenter(e.detail.center)}
                             mapId="e8c5dcfe877a5b6d"
                             disableDefaultUI={true}
                             style={{ width: '100%', height: '100%', filter: 'contrast(1.25) brightness(0.8) saturate(1.4)' }}
@@ -315,6 +418,11 @@ export default function MapUI() {
                                         <div className={`relative w-8 h-8 rounded-full border-2 ${agent.isInteracting ? 'border-white bg-white/20' : 'border-white/80'} shadow-[0_0_20px_rgba(255,255,255,0.4)] ${!agent.isInteracting && getMoodColor(agent.sentimentScore)} flex items-center justify-center text-lg`}>
                                             {agent.isInteracting && <div className="absolute -inset-2 border-2 tracking-wider animate-spin border-rose-500 rounded-full border-t-transparent"></div>}
                                             {getAgentIcon(agent.role)}
+                                            {currentSpeakerId === agent.id && (
+                                                <div className="absolute -top-3 -right-3 text-[14px] animate-bounce filter drop-shadow-[0_0_5px_rgba(255,255,255,0.8)] z-50">
+                                                    🔊
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Hover info tooltip */}
@@ -331,8 +439,13 @@ export default function MapUI() {
 
                 {/* NPC DETAIL PANEL */}
                 {selectedAgent && (
-                    <div className="w-full md:w-96 h-full bg-gradient-to-b from-[#0a0a0f] to-[#040406] border-l border-gray-800 p-4 md:p-8 flex flex-col overflow-y-auto z-20 shadow-2xl animate-in slide-in-from-right duration-500 ease-out relative">
-                        <button onClick={() => setSelectedAgent(null)} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition-all">✕</button>
+                    <div className="fixed md:relative inset-x-0 bottom-0 md:inset-auto w-full md:w-96 h-[85vh] md:h-full bg-gradient-to-b from-[#0a0a0f] to-[#040406] md:border-l border-t md:border-t-0 border-gray-800 p-4 md:p-8 flex flex-col overflow-y-auto z-[60] shadow-[0_-20px_50px_rgba(0,0,0,0.8)] md:shadow-2xl animate-in slide-in-from-bottom md:slide-in-from-right duration-500 ease-out rounded-t-2xl md:rounded-none">
+                        {/* Mobile Swipe Handle */}
+                        <div className="w-full flex justify-center pb-4 md:hidden" onClick={() => setSelectedAgent(null)}>
+                            <div className="w-12 h-1.5 bg-gray-700 rounded-full"></div>
+                        </div>
+
+                        <button onClick={() => setSelectedAgent(null)} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition-all hidden md:flex">✕</button>
 
                         <div className="mb-8">
                             <div className="flex items-center gap-2 mb-2">
@@ -517,6 +630,8 @@ export default function MapUI() {
                         </div>
                     </div>
                 )}
+                
+                <ShortcutModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
             </div>
         </APIProvider>
     );

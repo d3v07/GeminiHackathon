@@ -81,7 +81,7 @@ export default function Home() {
         By pausing the UI connection when the server is "killed", 
         we simulate the agent's logic pausing until restoration, perfectly demoing durability. 
       */}
-        <div className={`flex-grow h-1/2 md:h-full transition-opacity duration-1000 relative ${isServerActive ? 'opacity-100' : 'opacity-20 pointer-events-none blur-sm'}`}>
+        <div className={`w-full h-full md:flex-grow transition-opacity duration-1000 relative z-10 ${isServerActive ? 'opacity-100' : 'opacity-20 pointer-events-none blur-sm'}`}>
           <ErrorBoundary fallbackLabel="Map">
             <MapUI />
           </ErrorBoundary>
@@ -89,7 +89,7 @@ export default function Home() {
           {/* Help Button overlaid on map */}
           <button
             onClick={() => setShowManual(true)}
-            className="absolute bottom-6 left-6 z-40 px-4 py-2 bg-black/80 backdrop-blur-md border border-gray-700 text-gray-300 font-mono text-xs rounded hover:bg-gray-800 hover:text-white transition-colors shadow-lg flex items-center gap-2"
+            className="absolute top-24 md:top-auto md:bottom-6 left-4 md:left-6 z-40 px-3 py-1.5 md:px-4 md:py-2 bg-black/80 backdrop-blur-md border border-gray-700 text-gray-300 font-mono text-[10px] md:text-xs rounded hover:bg-gray-800 hover:text-white transition-colors shadow-lg flex items-center gap-2"
           >
             <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center font-bold">?</span>
             User Manual
@@ -99,19 +99,30 @@ export default function Home() {
           <SimControls />
         </div>
 
-        <div className="w-full md:w-[450px] h-1/2 md:h-full border-t md:border-t-0 md:border-l border-gray-700 bg-gray-900 shadow-xl flex flex-col relative z-20">
-          <ErrorBoundary fallbackLabel="Control Panel">
-            <ControlPanel
-              onSimulateKill={() => setIsServerActive(false)}
-              onRestart={() => setIsServerActive(true)}
-            />
-          </ErrorBoundary>
+        {/* BOTTOM SHEET CONTROL PANEL (MOBILE) / SIDEBAR (DESKTOP) */}
+        <div className="fixed inset-x-0 bottom-0 md:relative md:inset-auto w-full md:w-[450px] h-[75vh] md:h-full border-t md:border-t-0 md:border-l border-gray-700 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] md:shadow-xl flex flex-col z-[50] transform transition-transform duration-500 translate-y-[calc(100%-48px)] hover:translate-y-0 focus-within:translate-y-0 md:translate-y-0 bg-gray-900">
+          {/* Mobile Drag Handle Indicator */}
+          <div className="w-full h-12 flex items-center justify-center md:hidden bg-gradient-to-b from-gray-800 to-gray-900 border-b border-gray-700/50 cursor-pointer absolute top-0 z-50 pointer-events-none">
+             <div className="flex flex-col items-center gap-1 opacity-60">
+                <div className="w-10 h-1 bg-gray-500 rounded-full"></div>
+                <div className="text-[9px] font-mono text-gray-400 font-bold tracking-widest uppercase">Global Telemetry</div>
+             </div>
+          </div>
+          
+          <div className="flex-1 mt-12 md:mt-0 flex flex-col overflow-hidden bg-[#030406]">
+            <ErrorBoundary fallbackLabel="Control Panel">
+              <ControlPanel
+                onSimulateKill={() => setIsServerActive(false)}
+                onRestart={() => setIsServerActive(true)}
+              />
+            </ErrorBoundary>
 
-          <div className="p-3 md:p-6 bg-gray-800 border-t border-gray-700 font-mono text-xs md:text-sm text-gray-400 flex flex-col md:flex-row justify-between items-center gap-2">
-            <div>Status: <span className={isServerActive ? "text-green-400 font-bold" : "text-red-500 font-bold mb-4"}>{isServerActive ? "ONLINE" : "OFFLINE"}</span></div>
-            <button onClick={testTrigger} className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs transition-colors">
-              Spawn Test NPC
-            </button>
+            <div className="p-3 md:p-6 bg-gray-800 border-t border-gray-700 font-mono text-[10px] md:text-sm text-gray-400 flex justify-between items-center gap-2 z-20 relative">
+              <div className="flex items-center gap-2">Status: <span className={isServerActive ? "text-green-400 font-bold" : "text-red-500 font-bold"}>{isServerActive ? "ONLINE" : "OFFLINE"}</span></div>
+              <button onClick={testTrigger} className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors whitespace-nowrap">
+                Test NPC
+              </button>
+            </div>
           </div>
         </div>
       </main>
