@@ -1,0 +1,78 @@
+{
+    "url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/15",
+    "repository_url":  "https://api.github.com/repos/d3v07/GeminiHackathon",
+    "labels_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/15/labels{/name}",
+    "comments_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/15/comments",
+    "events_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/15/events",
+    "html_url":  "https://github.com/d3v07/GeminiHackathon/issues/15",
+    "id":  4005374579,
+    "node_id":  "I_kwDORbNvjc7uvSpz",
+    "number":  15,
+    "title":  "[Frontend] Implement Live Street View Panorama",
+    "user":  {
+                 "login":  "d3v07",
+                 "id":  90106942,
+                 "node_id":  "MDQ6VXNlcjkwMTA2OTQy",
+                 "avatar_url":  "https://avatars.githubusercontent.com/u/90106942?v=4",
+                 "gravatar_id":  "",
+                 "url":  "https://api.github.com/users/d3v07",
+                 "html_url":  "https://github.com/d3v07",
+                 "followers_url":  "https://api.github.com/users/d3v07/followers",
+                 "following_url":  "https://api.github.com/users/d3v07/following{/other_user}",
+                 "gists_url":  "https://api.github.com/users/d3v07/gists{/gist_id}",
+                 "starred_url":  "https://api.github.com/users/d3v07/starred{/owner}{/repo}",
+                 "subscriptions_url":  "https://api.github.com/users/d3v07/subscriptions",
+                 "organizations_url":  "https://api.github.com/users/d3v07/orgs",
+                 "repos_url":  "https://api.github.com/users/d3v07/repos",
+                 "events_url":  "https://api.github.com/users/d3v07/events{/privacy}",
+                 "received_events_url":  "https://api.github.com/users/d3v07/received_events",
+                 "type":  "User",
+                 "user_view_type":  "public",
+                 "site_admin":  false
+             },
+    "labels":  [
+
+               ],
+    "state":  "open",
+    "locked":  false,
+    "assignees":  [
+
+                  ],
+    "milestone":  null,
+    "comments":  0,
+    "created_at":  "2026-02-28T20:51:07Z",
+    "updated_at":  "2026-02-28T20:51:07Z",
+    "closed_at":  null,
+    "assignee":  null,
+    "author_association":  "OWNER",
+    "active_lock_reason":  null,
+    "sub_issues_summary":  {
+                               "total":  0,
+                               "completed":  0,
+                               "percent_completed":  0
+                           },
+    "issue_dependencies_summary":  {
+                                       "blocked_by":  0,
+                                       "total_blocked_by":  0,
+                                       "blocking":  0,
+                                       "total_blocking":  0
+                                   },
+    "body":  "We are replacing the static image tag with an interactive 360 view.\n\n**Objective**: \nModify `MapUI.tsx` to use the `google.maps.StreetViewPanorama` component instead of the static image API. The current view is just a flat picture. To wow the judges, we want the user to be able to drag, pan, and explore the street view 360 degrees when they click on an agent.\n\n**Steps**:\n1. Check the official `@vis.gl/react-google-maps` documentation for their StreetView integration.\n2. Ensure you use the specific Lat/Lng of the `selectedAgent`.\n3. Add a smooth fade-in animation.",
+    "closed_by":  null,
+    "reactions":  {
+                      "url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/15/reactions",
+                      "total_count":  0,
+                      "+1":  0,
+                      "-1":  0,
+                      "laugh":  0,
+                      "hooray":  0,
+                      "confused":  0,
+                      "heart":  0,
+                      "rocket":  0,
+                      "eyes":  0
+                  },
+    "timeline_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/15/timeline",
+    "performed_via_github_app":  null,
+    "state_reason":  null,
+    "pinned_comment":  null
+}

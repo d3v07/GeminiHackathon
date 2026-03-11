@@ -1,0 +1,41 @@
+title:	S5.4: Frontend Sentry + health dashboard + debug panel + error toasts
+state:	OPEN
+author:	d3v07
+labels:	frontend, observability, P0, sprint-5
+comments:	0
+assignees:	kushyarwar
+projects:	
+milestone:	
+number:	97
+--
+## S5.4 ΓÇö Frontend Error Tracking & Health Dashboard
+
+**Sprint**: 5 (Observability) ┬╖ **Order**: 4 of 5 ┬╖ **Assignee**: kushyarwar  
+**Previous**: S5.1-S5.3 (d3v07) added structured logging, LangSmith tracing, Prometheus metrics, token/cost tracking, and a `/api/metrics` endpoint that returns system health data as JSON.
+
+### Context
+The backend now has full observability. The frontend has none ΓÇö errors silently fail, there's no way to see system health from the UI. This issue adds Sentry for error tracking and a dashboard that shows live system data from the `/api/metrics` endpoint.
+
+### What to Do
+
+- [ ] **Install Sentry** ΓÇö `cd orchestrator && npm install @sentry/nextjs`. Run `npx @sentry/wizard@latest -i nextjs` to set up. Add `NEXT_PUBLIC_SENTRY_DSN` to .env.example. Configure to capture unhandled errors + failed fetch calls.
+- [ ] **Add error boundaries with Sentry** ΓÇö Wrap MapUI and ControlPanel in Sentry error boundaries (`Sentry.ErrorBoundary`). On crash, show fallback UI with "Something went wrong" + retry button + Sentry event ID.
+- [ ] **Build health dashboard component** ΓÇö New `HealthDashboard.tsx` component that polls `/api/metrics` every 10 seconds. Display: active agent count, encounters today, total tokens used, estimated cost (USD), system uptime. Use simple cards/stats layout.
+- [ ] **Replace decorative status labels** ΓÇö ControlPanel has hardcoded "Online" / "Active" labels. Replace with real data from /api/metrics. Show actual agent count, actual encounter rate, actual API latency.
+- [ ] **Add debug panel** ΓÇö Toggleable panel (keyboard shortcut `Ctrl+D`) that shows: raw Firestore agent data, last API response, WebSocket/onSnapshot connection state, Clerk auth state. Useful for troubleshooting.
+- [ ] **Add error toast notifications** ΓÇö When any API call fails (interact, state, tts, streetview), show a toast notification with the error message and a retry button. Use a simple toast library or build with Tailwind.
+
+### How to Verify
+```bash
+docker-compose up
+# Open http://localhost:3000
+# Health dashboard should show real agent count, encounter count, cost
+# Intentionally break something (stop worker) ΓÇö Sentry should capture the error
+# Check Sentry dashboard ΓÇö should show the captured error with stack trace
+# Press Ctrl+D ΓÇö debug panel should appear with raw state data
+# Stop the backend ΓÇö should see error toasts and red connection indicator
+```
+
+### What's Next
+S5.5 verifies the full observability stack works together ΓÇö traces, metrics, errors, and dashboard all connected.
+
