@@ -3,6 +3,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
 import { useSimulation } from '@/lib/SimulationContext';
+import dynamic from 'next/dynamic';
+
+const SocialGraph = dynamic(() => import('./SocialGraph'), {
+    ssr: false,
+    loading: () => <div className="w-full h-full flex items-center justify-center text-indigo-500 font-mono animate-pulse bg-black">Initializing WebGL Surface...</div>
+});
 
 const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
 
@@ -63,15 +69,51 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
 export default function MapUI() {
     const { agents, isLoading, error, connectionStatus } = useSimulation();
     const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
+    const [detailedAgent, setDetailedAgent] = useState<any | null>(null);
+    const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [commMessage, setCommMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
+    
+    // Filters
+    const [searchQuery, setSearchQuery] = useState('');
+    const [minSentiment, setMinSentiment] = useState(-1);
+    const [maxSentiment, setMaxSentiment] = useState(1);
+    const [showFilters, setShowFilters] = useState(false);
+    
+    // View Modes
+    const [showSocialGraph, setShowSocialGraph] = useState(false);
 
-    // Keep selectedAgent in sync with latest data from context
+    // Keep selectedAgent position in sync with latest data from context
     useEffect(() => {
-        if (!selectedAgent) return;
+        if (!selectedAgent) {
+            setDetailedAgent(null);
+            return;
+        }
         const updated = agents.find((a: any) => a.id === selectedAgent.id);
         if (updated) setSelectedAgent(updated);
-    }, [agents]);
+    }, [agents, selectedAgent?.id]);
+
+    useEffect(() => {
+        if (!selectedAgent) return;
+        
+        // Fetch deep details
+        const fetchDetails = async () => {
+            setIsDetailLoading(true);
+            try {
+                const res = await fetch(`/api/agents/${selectedAgent.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setDetailedAgent(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch agent details:", err);
+            } finally {
+                setIsDetailLoading(false);
+            }
+        };
+
+        fetchDetails();
+    }, [selectedAgent?.id]);
 
     const getMoodColor = (score: number = 0) => {
         if (score > 0.3) return 'bg-emerald-500'; // Happy
@@ -109,6 +151,16 @@ export default function MapUI() {
             setIsSending(false);
         }
     };
+
+    const filteredAgents = agents.filter(a => {
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            if (!a.role?.toLowerCase().includes(q) && !a.id.toLowerCase().includes(q)) return false;
+        }
+        const sentiment = a.sentimentScore || 0;
+        if (sentiment < minSentiment || sentiment > maxSentiment) return false;
+        return true;
+    });
 
     return (
         <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
@@ -171,43 +223,110 @@ export default function MapUI() {
                     </div>
                 </div>
 
-                <div className="flex-1 relative">
-                    <Map
-                        defaultZoom={14}
-                        defaultCenter={NYC_CENTER}
-                        mapId="e8c5dcfe877a5b6d"
-                        disableDefaultUI={true}
-                        style={{ width: '100%', height: '100%', filter: 'contrast(1.25) brightness(0.8) saturate(1.4)' }}
-                    >
-                        {agents.map((agent) => (
-                            <AdvancedMarker
-                                key={agent.id}
-                                position={{ lat: Number(agent.lat), lng: Number(agent.lng) }}
-                                onClick={() => setSelectedAgent(agent)}
-                                zIndex={agent.isInteracting ? 100 : 1}
+                {/* Filter & View Controls Bar */}
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex flex-col items-end gap-2">
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setShowSocialGraph(!showSocialGraph)}
+                            className={`bg-black/80 backdrop-blur border px-3 py-1.5 rounded transition-colors font-mono text-xs shadow-lg flex items-center gap-2 ${showSocialGraph ? 'border-indigo-500 text-indigo-400 font-bold' : 'border-gray-700 hover:border-indigo-500/50 text-gray-400 hover:text-indigo-400'}`}
+                        >
+                            {showSocialGraph ? '🌐 MAP VIEW' : '🕸 SOCIAL GRAPH'}
+                        </button>
+                        <button 
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="bg-black/80 backdrop-blur border border-gray-700 hover:border-sky-500/50 text-gray-400 hover:text-sky-400 px-3 py-1.5 rounded transition-colors font-mono text-xs shadow-lg flex items-center gap-2"
+                        >
+                            {showFilters ? '✕ CLOSE FILTERS' : '⚡ FILTERS'}
+                            {(searchQuery || minSentiment !== -1 || maxSentiment !== 1) && <div className="w-2 h-2 rounded-full bg-sky-500"></div>}
+                        </button>
+                    </div>
+                    
+                    {showFilters && (
+                        <div className="bg-black/90 backdrop-blur-xl border border-gray-700/80 rounded-lg p-4 shadow-2xl w-64 text-xs font-mono text-gray-300 flex flex-col gap-4 animate-in slide-in-from-top-2">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[9px] uppercase tracking-widest text-sky-500 font-bold">Search Agents</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Role or ID..." 
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="bg-gray-900 border border-gray-700 rounded px-2 py-1 focus:border-sky-500 outline-none w-full"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[9px] uppercase tracking-widest text-emerald-500 font-bold">Min Sentiment ({minSentiment})</label>
+                                <input 
+                                    type="range" min="-1" max="1" step="0.1" 
+                                    value={minSentiment} 
+                                    onChange={e => setMinSentiment(parseFloat(e.target.value))}
+                                    className="accent-emerald-500"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[9px] uppercase tracking-widest text-rose-500 font-bold">Max Sentiment ({maxSentiment})</label>
+                                <input 
+                                    type="range" min="-1" max="1" step="0.1" 
+                                    value={maxSentiment} 
+                                    onChange={e => setMaxSentiment(parseFloat(e.target.value))}
+                                    className="accent-rose-500"
+                                />
+                            </div>
+                            <button 
+                                onClick={() => { setSearchQuery(''); setMinSentiment(-1); setMaxSentiment(1); }}
+                                className="mt-2 text-[9px] uppercase tracking-widest text-gray-500 hover:text-white border border-gray-800 rounded py-1 transition-colors"
                             >
-                                <div className={`group relative w-12 h-12 flex items-center justify-center transition-all duration-[800ms] cursor-pointer ${agent.isInteracting ? 'scale-150' : 'hover:scale-125'}`}>
-                                    {/* Outer Pulse glow */}
-                                    <div className={`absolute -inset-4 rounded-full blur-xl opacity-50 mix-blend-screen transition-colors duration-1000 ${getMoodColor(agent.sentimentScore)}`}></div>
+                                Reset Filters
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-                                    {/* Radar Ripple */}
-                                    <div className={`absolute w-full h-full rounded-full border border-white/20 scale-150 animate-ping opacity-30 ${getMoodColor(agent.sentimentScore)}`}></div>
+                <div className="flex-1 relative">
+                    {showSocialGraph ? (
+                        <div className="w-full h-full bg-black">
+                            <SocialGraph onNodeClick={(id) => {
+                                const agent = agents.find(a => a.id === id);
+                                if (agent) setSelectedAgent(agent);
+                            }} />
+                        </div>
+                    ) : (
+                        <Map
+                            defaultZoom={14}
+                            defaultCenter={NYC_CENTER}
+                            mapId="e8c5dcfe877a5b6d"
+                            disableDefaultUI={true}
+                            style={{ width: '100%', height: '100%', filter: 'contrast(1.25) brightness(0.8) saturate(1.4)' }}
+                        >
+                            {filteredAgents.map((agent) => (
+                                <AdvancedMarker
+                                    key={agent.id}
+                                    position={{ lat: Number(agent.lat), lng: Number(agent.lng) }}
+                                    onClick={() => setSelectedAgent(agent)}
+                                    zIndex={agent.isInteracting ? 100 : 1}
+                                >
+                                    <div className={`group relative w-12 h-12 flex items-center justify-center transition-all duration-[800ms] cursor-pointer ${agent.isInteracting ? 'scale-150' : 'hover:scale-125'}`}>
+                                        {/* Outer Pulse glow */}
+                                        <div className={`absolute -inset-4 rounded-full blur-xl opacity-50 mix-blend-screen transition-colors duration-1000 ${getMoodColor(agent.sentimentScore)}`}></div>
 
-                                    {/* Central Node */}
-                                    <div className={`relative w-8 h-8 rounded-full border-2 ${agent.isInteracting ? 'border-white bg-white/20' : 'border-white/80'} shadow-[0_0_20px_rgba(255,255,255,0.4)] ${!agent.isInteracting && getMoodColor(agent.sentimentScore)} flex items-center justify-center text-lg`}>
-                                        {agent.isInteracting && <div className="absolute -inset-2 border-2 tracking-wider animate-spin border-rose-500 rounded-full border-t-transparent"></div>}
-                                        {getAgentIcon(agent.role)}
+                                        {/* Radar Ripple */}
+                                        <div className={`absolute w-full h-full rounded-full border border-white/20 scale-150 animate-ping opacity-30 ${getMoodColor(agent.sentimentScore)}`}></div>
+
+                                        {/* Central Node */}
+                                        <div className={`relative w-8 h-8 rounded-full border-2 ${agent.isInteracting ? 'border-white bg-white/20' : 'border-white/80'} shadow-[0_0_20px_rgba(255,255,255,0.4)] ${!agent.isInteracting && getMoodColor(agent.sentimentScore)} flex items-center justify-center text-lg`}>
+                                            {agent.isInteracting && <div className="absolute -inset-2 border-2 tracking-wider animate-spin border-rose-500 rounded-full border-t-transparent"></div>}
+                                            {getAgentIcon(agent.role)}
+                                        </div>
+
+                                        {/* Hover info tooltip */}
+                                        <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 backdrop-blur px-3 py-1.5 rounded border border-gray-800 text-[9px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-50">
+                                            ID: {agent.id.substring(0, 8)}<br />
+                                            STATE: {agent.isInteracting ? 'INTERACTING' : 'IDLE'}
+                                        </div>
                                     </div>
-
-                                    {/* Hover info tooltip */}
-                                    <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 backdrop-blur px-3 py-1.5 rounded border border-gray-800 text-[9px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none">
-                                        ID: {agent.id.substring(0, 8)}<br />
-                                        STATE: {agent.isInteracting ? 'INTERACTING' : 'IDLE'}
-                                    </div>
-                                </div>
-                            </AdvancedMarker>
-                        ))}
-                    </Map>
+                                </AdvancedMarker>
+                            ))}
+                        </Map>
+                    )}
                 </div>
 
                 {/* NPC DETAIL PANEL */}
@@ -293,6 +412,70 @@ export default function MapUI() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Deep Details from `/api/agents/:id` */}
+                        {isDetailLoading && (
+                            <div className="mt-6 flex justify-center py-4">
+                                <span className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></span>
+                            </div>
+                        )}
+
+                        {!isDetailLoading && detailedAgent && detailedAgent.memorySnippets && (
+                            <div className="mt-6 space-y-6 animate-in fade-in duration-500">
+                                {/* Relationships */}
+                                {detailedAgent.relationships && detailedAgent.relationships.length > 0 && (
+                                    <div>
+                                        <span className="text-[9px] font-bold text-amber-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-3">
+                                            Social Graph Matrix
+                                        </span>
+                                        <div className="flex flex-wrap gap-2">
+                                            {detailedAgent.relationships.map((rel: any, i: number) => (
+                                                <div key={i} className={`border px-2 py-1 rounded text-[9px] font-mono shadow-sm ${rel.type === 'friend' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : rel.type === 'rival' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-gray-800/50 border-gray-700 text-gray-400'}`}>
+                                                    {rel.target.substring(0, 12)}...
+                                                    <span className="ml-1 uppercase opacity-60">[{rel.type}]</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Memory Snippets */}
+                                {detailedAgent.memorySnippets.length > 0 && (
+                                    <div>
+                                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-3">
+                                            Fragmented Memories
+                                        </span>
+                                        <div className="flex flex-col gap-2">
+                                            {detailedAgent.memorySnippets.map((mem: string, i: number) => (
+                                                <div key={i} className="bg-gray-900/40 rounded p-3 border border-gray-800 border-l-2 border-l-indigo-500 text-[10px] text-gray-300 font-mono tracking-tight leading-relaxed shadow-inner truncate hover:whitespace-normal transition-all" title={mem}>
+                                                    &gt; {mem}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Recent Encounters Preview */}
+                                {detailedAgent.recentEncounters && detailedAgent.recentEncounters.length > 0 && (
+                                    <div>
+                                        <span className="text-[9px] font-bold text-cyan-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-3">
+                                            Comm-Link Archives
+                                        </span>
+                                        <div className="flex flex-col gap-2 relative">
+                                            <div className="absolute left-1 top-2 bottom-2 w-px bg-cyan-500/20"></div>
+                                            {detailedAgent.recentEncounters.map((enc: any, i: number) => (
+                                                <div key={i} className="pl-6 relative">
+                                                    <div className="absolute left-[3px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
+                                                    <p className="text-[10px] text-gray-400 font-mono truncate hover:whitespace-normal cursor-pointer bg-black/40 hover:bg-black/60 rounded px-2 py-1 border border-transparent hover:border-cyan-500/30 transition-colors">
+                                                        "{enc.transcript?.substring(0, 50)}..."
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Footer Stats block */}
                         <div className="mt-8">

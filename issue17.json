@@ -1,0 +1,78 @@
+{
+    "url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/17",
+    "repository_url":  "https://api.github.com/repos/d3v07/GeminiHackathon",
+    "labels_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/17/labels{/name}",
+    "comments_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/17/comments",
+    "events_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/17/events",
+    "html_url":  "https://github.com/d3v07/GeminiHackathon/issues/17",
+    "id":  4005406302,
+    "node_id":  "I_kwDORbNvjc7uvaZe",
+    "number":  17,
+    "title":  "[Feature] The \u0027Ripple Effect\u0027 Engine: User Interaction \u0026 Emergent Swarms",
+    "user":  {
+                 "login":  "d3v07",
+                 "id":  90106942,
+                 "node_id":  "MDQ6VXNlcjkwMTA2OTQy",
+                 "avatar_url":  "https://avatars.githubusercontent.com/u/90106942?v=4",
+                 "gravatar_id":  "",
+                 "url":  "https://api.github.com/users/d3v07",
+                 "html_url":  "https://github.com/d3v07",
+                 "followers_url":  "https://api.github.com/users/d3v07/followers",
+                 "following_url":  "https://api.github.com/users/d3v07/following{/other_user}",
+                 "gists_url":  "https://api.github.com/users/d3v07/gists{/gist_id}",
+                 "starred_url":  "https://api.github.com/users/d3v07/starred{/owner}{/repo}",
+                 "subscriptions_url":  "https://api.github.com/users/d3v07/subscriptions",
+                 "organizations_url":  "https://api.github.com/users/d3v07/orgs",
+                 "repos_url":  "https://api.github.com/users/d3v07/repos",
+                 "events_url":  "https://api.github.com/users/d3v07/events{/privacy}",
+                 "received_events_url":  "https://api.github.com/users/d3v07/received_events",
+                 "type":  "User",
+                 "user_view_type":  "public",
+                 "site_admin":  false
+             },
+    "labels":  [
+
+               ],
+    "state":  "open",
+    "locked":  false,
+    "assignees":  [
+
+                  ],
+    "milestone":  null,
+    "comments":  0,
+    "created_at":  "2026-02-28T21:06:37Z",
+    "updated_at":  "2026-02-28T21:06:37Z",
+    "closed_at":  null,
+    "assignee":  null,
+    "author_association":  "OWNER",
+    "active_lock_reason":  null,
+    "sub_issues_summary":  {
+                               "total":  0,
+                               "completed":  0,
+                               "percent_completed":  0
+                           },
+    "issue_dependencies_summary":  {
+                                       "blocked_by":  0,
+                                       "total_blocked_by":  0,
+                                       "blocking":  0,
+                                       "total_blocking":  0
+                                   },
+    "body":  "We are taking the simulation\u0027s complexity to the next level by introducing \"Swarms\" around our primary personas and allowing direct User-Agent interaction!\n\n**Overview**:\nCurrently, we have 15 distinct personas roaming Manhattan. We want to augment these \"Main Characters\" with secondary \"Sub-Characters\" (Swarms) and inject the User into the simulation as an active participant to actively manipulate the global sentiment.\n\n**Objectives**:\n1. **Spawn Sub-Character Swarms**: \n   - Update the spawner to generate ~10 secondary NPCs orbiting specific main characters. \n   - *Example*: Spawn 10 \"Stressed Lawyers\" near the Judge. Spawn 10 \"Fellow Dog Walkers\" near the Central Park Dog Walker. Spawn 10 \"Hungry Customers\" near the Chinatown Restaurant Owner.\n   - These sub-characters will interact with each other and the main characters, creating dense pockets of activity.\n\n2. **User-as-Agent Integration (The Comm-Link)**:\n   - Create a UI component (a chat window) that allows the human User to physically \"drop in\" and communicate with the entities.\n   - The User can direct-message the currently selected NPC on the map.\n\n3. **Sentiment Manipulation Gameplay**:\n   - When the User chats with an NPC, the backend processes the User\u0027s text, calculates the sentiment, and updates the NPC\u0027s `sentimentScore`.\n   - **The Goal**: The User acts as a positive force, whispering affirmations to shift the \"Global Mood Index\" upward.\n   - Because of our active \"Vibe Contagion\" algorithm, when the User makes one Restaurant Owner happy, that owner will autonomously spread the positive sentiment to their 10 customers when they collide!\n\n**Execution Steps**:\n- Update the spawning logic to generate these clusters of 10 sub-characters around the starting coordinates of the specific main characters.\n- In `ControlPanel.tsx` or `MapUI.tsx`, add a \"User Comm-Link\" chatbox that lets the human type a message to the `selectedAgent`.\n- Wire that chatbox to send a POST request to the backend to generate an AI response from that specific agent and definitively update their vibe based on the user\u0027s input.\n\nThis is the ultimate evolution of the project. Let\u0027s make the city truly alive!\n",
+    "closed_by":  null,
+    "reactions":  {
+                      "url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/17/reactions",
+                      "total_count":  0,
+                      "+1":  0,
+                      "-1":  0,
+                      "laugh":  0,
+                      "hooray":  0,
+                      "confused":  0,
+                      "heart":  0,
+                      "rocket":  0,
+                      "eyes":  0
+                  },
+    "timeline_url":  "https://api.github.com/repos/d3v07/GeminiHackathon/issues/17/timeline",
+    "performed_via_github_app":  null,
+    "state_reason":  null,
+    "pinned_comment":  null
+}

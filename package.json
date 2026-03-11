@@ -31,6 +31,7 @@
     "@langchain/google-genai": "^2.1.24",
     "@langchain/langgraph": "^1.2.0",
     "@pinecone-database/pinecone": "^7.1.0",
+    "@slack/webhook": "^7.0.7",
     "@temporalio/activity": "^1.15.0",
     "@temporalio/client": "^1.15.0",
     "@temporalio/worker": "^1.15.0",
