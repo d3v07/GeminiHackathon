@@ -3,8 +3,9 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
-    children: ReactNode;
+    children?: ReactNode;
     fallbackLabel?: string;
+    errorOverride?: Error | null;
 }
 
 interface State {
@@ -31,7 +32,10 @@ export default class ErrorBoundary extends Component<Props, State> {
     };
 
     render() {
-        if (this.state.hasError) {
+        const errorToShow = this.props.errorOverride || this.state.error;
+        const hasError = this.state.hasError || !!this.props.errorOverride;
+
+        if (hasError) {
             return (
                 <div className="flex flex-col items-center justify-center h-full w-full bg-[#050608] text-white p-8">
                     <div className="max-w-md text-center space-y-6">
@@ -43,7 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                                 {this.props.fallbackLabel || 'Component'} Error
                             </h3>
                             <p className="text-[12px] font-mono text-gray-500 leading-relaxed">
-                                {this.state.error?.message || 'An unexpected error occurred'}
+                                {errorToShow?.message || 'An unexpected error occurred'}
                             </p>
                         </div>
                         <button
