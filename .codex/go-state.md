@@ -6,15 +6,15 @@
 - Phase: sprint-execution
 - Branch: feat/s6c-t1-contract-tests
 - Current Sprint: Sprint 6-C
-- Current Task: S6C-T1 contract tests for Sprint 6 APIs
-- Last Checkpoint: S6C-T1 tests added and passing
+- Current Task: S6C-T2/S6C-T3/S6C-T4 implementation and PR update
+- Last Checkpoint: SSE hardening tests + seed/smoke scripts + targeted lint fix complete
 
 ## Sprint Board
 Sprint 6-C: Backend Stabilization Before Frontend Wiring
-- #158 S6C-T1 [P1] [test] Contract tests for new APIs (#157 endpoints): DONE locally, PR pending
-- #159 S6C-T2 [P1] [fix] SSE reliability hardening: add reconnect metadata, initial hello event, and listener error-path tests for agents stream
-- #160 S6C-T3 [P1] [chore] Integration seed + smoke harness: deterministic Firestore seed and one-command API smoke script for frontend handoff
-- #161 S6C-T4 [P2] [fix] Lint/type debt in backend API routes touched during Sprint 6, prioritizing removal of explicit any in state/orchestrator API paths
+- #158 S6C-T1 [P1] [test] Contract tests for new APIs (#157 endpoints): DONE, in PR #162
+- #159 S6C-T2 [P1] [fix] SSE reliability hardening: DONE locally (typed events + cleanup tests), PR update pending
+- #160 S6C-T3 [P1] [chore] Integration seed + smoke harness: DONE locally (scripts + README), PR update pending
+- #161 S6C-T4 [P2] [fix] Lint/type debt in backend API routes touched during Sprint 6: partial DONE (state route any removed), follow-up cleanup remains
 
 Sprint 7: Production Deploy (existing)
 - #104 S7.1 Docker hardening
@@ -30,14 +30,19 @@ Sprint 7: Production Deploy (existing)
 - Slack handoff to Kush was sent with endpoint inventory
 - Created Sprint 6-C issues #158, #159, #160, #161
 - Added Vitest-based contract suite at orchestrator/src/app/api/contracts.test.ts (16 passing tests)
+- Added SSE hardening with hello/heartbeat/error/agents metadata in orchestrator/src/app/api/agents/stream/route.ts
+- Added stream reliability tests in orchestrator/src/app/api/agents/stream.test.ts (5 passing tests)
+- Added deterministic backend fixture seed script and Sprint 6 smoke harness scripts
+- Targeted lint check passes for changed backend API files
 
 ## What Did Not Work
 - Self-approval on own PR is blocked by GitHub (must use comment review)
 - Rebase conflict occurred on send-handoff script after squash merge; skipping duplicate commit resolved it
 - Local lint baseline currently fails due existing debt across orchestrator routes/components
+- smoke:s6 cannot pass without a running local orchestrator at http://localhost:3000
 
 ## Blockers
 - Lint baseline red; gates must be scoped per issue until debt is reduced
 
 ## Exact Next Step
-Commit and push S6C-T1 test changes, open PR linked to #158, then move to #159 SSE reliability hardening.
+Commit and push S6C-T2/S6C-T3/S6C-T4 changes to PR #162, then request merge decision.
