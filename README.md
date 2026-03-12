@@ -88,6 +88,22 @@ You should see:
 node scripts/smoke-test.js
 ```
 
+### 5. Sprint 6 backend fixture + contract smoke
+
+```bash
+# Seed deterministic fixtures used by Sprint 6 APIs
+npm run seed:s6
+
+# Verify Sprint 6 API surface end-to-end
+npm run smoke:s6
+```
+
+Optional custom host:
+
+```bash
+ORCHESTRATOR_BASE_URL=http://localhost:3000 npm run smoke:s6
+```
+
 ## Services
 
 | Service | Port | Description |
