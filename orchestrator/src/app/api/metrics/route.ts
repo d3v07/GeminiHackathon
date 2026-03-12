@@ -40,7 +40,7 @@ export async function GET() {
             toolCalls: promMetrics['tool_calls_total'] || 0,
             toolErrors: promMetrics['tool_call_errors_total'] || 0,
         });
-    } catch (e) {
+    } catch {
         return NextResponse.json({ error: 'Failed to fetch metrics' }, { status: 500 });
     }
 }
