@@ -1,0 +1,51 @@
+name: Issue Handoff Notification
+
+on:
+  issues:
+    types: [assigned]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event.issue.assignee != null
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Post to Slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "📋 Handoff: ${{ github.event.issue.title }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🎯 HANDOFF TO @${{ github.event.issue.assignee.login }}*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}*\n\n${{ github.event.issue.body }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Open Issue"
+                      },
+                      "url": "${{ github.event.issue.html_url }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
