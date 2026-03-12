@@ -52,6 +52,8 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     env_file: .env
+    ports:
+      - "9090:9090"
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
     volumes:

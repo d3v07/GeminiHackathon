@@ -34,6 +34,11 @@ spec:
                 name: metropolis-secrets
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
+          ports:
+            - containerPort: 8080
+              name: health
+            - containerPort: 9090
+              name: metrics
           livenessProbe:
             exec:
               command:
