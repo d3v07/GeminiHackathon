@@ -1,8 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface Agent {
     id: string;
@@ -49,66 +47,79 @@ export function SimulationProvider({ children, enabled = true }: { children: Rea
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
-    const isMounted = useRef(true);
+    const eventSourceRef = useRef<EventSource | null>(null);
+    const encountersIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        isMounted.current = true;
-
         if (!enabled) {
             setConnectionStatus('disconnected');
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+            }
+            if (encountersIntervalRef.current) clearInterval(encountersIntervalRef.current);
             return;
         }
 
         setConnectionStatus('connecting');
 
-        // Real-time listener for agents collection
-        const agentsRef = collection(db, 'agents');
-        const unsubAgents = onSnapshot(
-            agentsRef,
-            (snapshot) => {
-                if (!isMounted.current) return;
-                const agentData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                } as Agent));
-                setAgents(agentData);
+        const connectSSE = () => {
+            const es = new EventSource('/api/agents/stream');
+            eventSourceRef.current = es;
+
+            es.onopen = () => {
                 setConnectionStatus('connected');
                 setError(null);
-                setIsLoading(false);
-            },
-            (err) => {
-                if (!isMounted.current) return;
-                console.error('Firestore agents listener error:', err);
-                setConnectionStatus('disconnected');
-                setError(err.message ?? 'Lost connection to Firestore');
-                setIsLoading(false);
-            }
-        );
+            };
 
-        // Real-time listener for encounters collection (latest 50)
-        const encountersRef = collection(db, 'encounters');
-        const encountersQuery = query(encountersRef, orderBy('timestamp', 'desc'), limit(50));
-        const unsubEncounters = onSnapshot(
-            encountersQuery,
-            (snapshot) => {
-                if (!isMounted.current) return;
-                const encounterData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                } as Encounter));
-                setEncounters(encounterData);
-            },
-            (err) => {
-                if (!isMounted.current) return;
-                console.error('Firestore encounters listener error:', err);
-                // Don't override agent connection status if encounters fail separately
+            es.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data && Array.isArray(data)) {
+                        setAgents(data);
+                        setIsLoading(false);
+                    }
+                } catch (e) {
+                    console.error("Failed to parse SSE data", e);
+                }
+            };
+
+            es.onerror = (e) => {
+                console.error('SSE Error:', e);
+                setConnectionStatus('disconnected');
+                setError('Live stream connection lost. Attempting reconnect...');
+                es.close();
+                
+                // Fallback reconnect after 5s
+                setTimeout(() => {
+                    if (enabled) connectSSE();
+                }, 5000);
+            };
+        };
+
+        connectSSE();
+
+        // Encounters polling fallback since SSE is specifically for agents
+        const fetchEncounters = async () => {
+            try {
+                const res = await fetch('/api/encounters/history?limit=50');
+                if (res.ok) {
+                    const data = await res.json();
+                    setEncounters(data);
+                }
+            } catch (err) {
+                console.error("Failed fetching encounters history:", err);
             }
-        );
+        };
+
+        fetchEncounters();
+        encountersIntervalRef.current = setInterval(fetchEncounters, 5000);
 
         return () => {
-            isMounted.current = false;
-            unsubAgents();
-            unsubEncounters();
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+            }
+            if (encountersIntervalRef.current) clearInterval(encountersIntervalRef.current);
         };
     }, [enabled]);
 

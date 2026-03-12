@@ -1,0 +1,38 @@
+title:	S6.4: Frontend ΓÇö explore mode, TTS playback, encounter replay, mobile, shortcuts
+state:	OPEN
+author:	d3v07
+labels:	frontend, P1, sprint-6
+comments:	0
+assignees:	kushyarwar
+projects:	
+milestone:	
+number:	102
+--
+## S6.4 ΓÇö Frontend Features: Explore Mode, TTS, Encounter Replay, Mobile
+
+**Sprint**: 6 (Features) ┬╖ **Order**: 4 of 5 ┬╖ **Assignee**: kushyarwar  
+**Previous**: S6.3 added social graph visualization, simulation controls (pause/resume/speed/spawn), agent filter/search, SSE live updates, and enhanced agent detail panel. The app is now interactive.
+
+### Context
+The map view works great but users also want to "walk around" the city, hear agent voices, watch past encounters, and use the app on mobile. These are the engagement features that make the demo impressive.
+
+### What to Do
+
+- [ ] **Build explore mode** ΓÇö New view toggle: Map View Γåö Explore View. Explore view drops the user to street level using StreetView. Show nearby agents as overlaid markers. User navigates with arrow keys/WASD (move camera position). When near an agent, auto-open the chat panel. Use `/api/streetview` for imagery.
+- [ ] **Complete TTS integration in UI** ΓÇö When an encounter happens or user chats with an agent, call `/api/tts` with the agent's response text. Auto-play the audio. Add volume control. Show a speaker icon on the agent marker when audio is playing. All 15 voices should sound distinct (S4.1 mapped them on backend).
+- [ ] **Build encounter replay viewer** ΓÇö New `EncounterReplay.tsx` component accessible from sidebar. Fetch from `/api/encounters/history`. Show a timeline/list of encounters. Click one to see the full dialogue with timestamps, agent names, location on map. "Jump to location" button centers map on encounter location.
+- [ ] **Mobile-responsive layout** ΓÇö Make the app usable on 375px-768px viewports. Map takes full width. Sidebar becomes bottom sheet (swipe up). Controls collapse into a hamburger menu. Agent detail is a bottom drawer. Chat is a full-screen overlay. Test on iPhone Safari and Android Chrome.
+- [ ] **Add keyboard shortcuts** ΓÇö Arrow keys = pan map, +/- = zoom, Escape = deselect agent, Space = pause/resume, F = toggle fullscreen, E = toggle explore mode, G = toggle social graph. Show shortcuts in a help modal (`?` key).
+
+### How to Verify
+```
+1. Press E ΓåÆ drop into explore mode ΓåÆ navigate with WASD ΓåÆ see agents nearby
+2. Chat with agent ΓåÆ hear TTS voice playback ΓåÆ each agent sounds different
+3. Open encounter replay ΓåÆ click a past encounter ΓåÆ see full dialogue ΓåÆ click "jump to" ΓåÆ map centers
+4. Resize browser to 375px ΓåÆ app is usable (no horizontal scroll, no broken layout)
+5. Press ? ΓåÆ keyboard shortcuts modal appears
+```
+
+### What's Next
+S6.5 is the feature integration test ΓÇö verify all new features work together and measure performance.
+

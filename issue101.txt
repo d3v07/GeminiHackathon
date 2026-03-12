@@ -1,0 +1,39 @@
+title:	S6.3: Frontend ΓÇö social graph viz, simulation controls, agent filter, SSE
+state:	OPEN
+author:	d3v07
+labels:	frontend, P1, sprint-6
+comments:	0
+assignees:	kushyarwar
+projects:	
+milestone:	
+number:	101
+--
+## S6.3 ΓÇö Frontend Features: Social Graph, Controls, Agent Filter
+
+**Sprint**: 6 (Features) ┬╖ **Order**: 3 of 5 ┬╖ **Assignee**: kushyarwar  
+**Previous**: S6.1 added data APIs (social graph, encounter history, SSE agent stream, agent detail). S6.2 added control APIs (pause/resume, speed, spawn/despawn, NLP gate, region filter). All backend APIs are ready.
+
+### Context
+The frontend currently shows agents on a map and supports chat. Now we add rich interactive features: visualize agent relationships, control the simulation, and filter/search agents. All data comes from the new APIs built in S6.1 and S6.2.
+
+### What to Do
+
+- [ ] **Build social graph visualization** ΓÇö New `SocialGraph.tsx` component. Fetch from `/api/social-graph`. Render nodes (agents) and edges (relationships) using `d3-force` or `vis-network`. Color edges by relationship type (green=friend, red=rival, gray=acquaintance). Thickness by strength. Clicking a node selects that agent on the map.
+- [ ] **Build simulation controls panel** ΓÇö New `SimControls.tsx` component below the map. Buttons: Play/Pause, Speed (0.5x, 1x, 2x), Spawn Agent (opens a form), Despawn (button on selected agent). Calls `/api/simulation/control`, `/api/agents/spawn`, `/api/agents/despawn`.
+- [ ] **Build agent filter/search** ΓÇö Sidebar component: text search by agent name/role, dropdown filter by neighborhood (derived from agent lat/lng ΓåÆ borough), slider filter by sentiment score range. Filters apply to map markers (hide non-matching).
+- [ ] **Switch to SSE for live updates** ΓÇö Replace Firestore `onSnapshot` polling with the new `/api/agents/stream` SSE endpoint. Use `EventSource` API. Fall back to polling if SSE disconnects.
+- [ ] **Enhance agent detail panel** ΓÇö When agent is selected, fetch `/api/agents/:id` for full detail. Show: relationships (mini list), recent encounters (last 3 with dialogue preview), memory snippets (last 3 recalled memories), current task, emotional state.
+
+### How to Verify
+```
+1. Open app ΓåÆ navigate to social graph view ΓåÆ see agent nodes connected by relationship edges
+2. Click Pause ΓåÆ agents stop moving ΓåÆ click Resume ΓåÆ they start again
+3. Change speed to 2x ΓåÆ agents move more frequently
+4. Type "musician" in search ΓåÆ only musician agents shown on map
+5. Click an agent ΓåÆ detail panel shows relationships + encounter history
+6. SSE stream working ΓÇö agent markers update without polling
+```
+
+### What's Next
+S6.4 adds the remaining frontend features ΓÇö explore mode, TTS, encounter replay, and mobile layout.
+

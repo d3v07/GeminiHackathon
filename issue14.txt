@@ -1,0 +1,3 @@
+﻿Hey Kush, the Street View image in the Next.js detail panel is rendering as a black box. The `maps.googleapis.com` request is returning a 403 error: `The Google Maps Platform server rejected your request. This API is not activated on your API project.` 
+
+Please go to the Google Cloud Console for the project attached to the `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` and formally enable the **Street View Static API**. The UI code itself is correct, it just needs the API flipped on.

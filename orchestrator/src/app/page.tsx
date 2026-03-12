@@ -4,6 +4,7 @@ import { useState } from 'react';
 import MapUI from '@/components/MapUI';
 import ControlPanel from '@/components/ControlPanel';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import SimControls from '@/components/SimControls';
 import { SimulationProvider } from '@/lib/SimulationContext';
 import DebugPanel from '@/components/DebugPanel';
 import { useToast } from '@/components/ToastContainer';
@@ -101,6 +102,9 @@ export default function Home() {
             <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center font-bold">?</span>
             User Manual
           </button>
+
+          {/* SIMULATION CONTROLS */}
+          <SimControls />
         </div>
 
         <div className="w-full md:w-[450px] h-1/2 md:h-full border-t md:border-t-0 md:border-l border-gray-700 bg-gray-900 shadow-xl flex flex-col relative z-20">
