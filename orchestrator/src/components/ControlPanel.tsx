@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSimulation } from '@/lib/SimulationContext';
+import EncounterReplay from './EncounterReplay';
 import HealthDashboard from './HealthDashboard';
 
 interface Encounter {
@@ -22,6 +23,7 @@ export default function ControlPanel({
     const { agents, encounters, isLoading, connectionStatus } = useSimulation();
     const [logs, setLogs] = useState<string[]>([]);
     const [isServerDead, setIsServerDead] = useState(false);
+    const [showReplay, setShowReplay] = useState(false);
 
     // Stats calculations
     const activeAgents = agents.length;
@@ -168,10 +170,18 @@ export default function ControlPanel({
                         <div className="flex items-center gap-3">
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">NLP Sentiment Stream</span>
                         </div>
-                        <span className="text-[9px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono flex items-center gap-1.5">
-                            <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span>
-                            BIGQUERY_LINK_ACTIVE
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setShowReplay(true)}
+                                className="text-[9px] text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/20 font-bold tracking-widest uppercase transition-colors"
+                            >
+                                HISTORY REPLAY
+                            </button>
+                            <span className="text-[9px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono flex items-center gap-1.5 hidden md:flex">
+                                <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span>
+                                BIGQUERY_LINK_ACTIVE
+                            </span>
+                        </div>
                     </div>
                     <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                         <div className="space-y-4">
@@ -230,10 +240,13 @@ export default function ControlPanel({
                         <svg className="w-3.5 h-3.5 text-gray-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" /></svg>
                         Next.js + GCP + Temporal
                     </div>
-                    <div className="text-[9px] text-gray-600 uppercase tracking-[0.2em] font-mono">WORKSPACE:{process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}</div>
+                    <div className="text-[9px] text-gray-600 uppercase tracking-[0.2em] font-mono hidden md:block">WORKSPACE:{process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}</div>
                 </div>
-                <div className="text-[9px] text-gray-600 font-mono italic animate-pulse">SYSTEM NOMINAL. ANTIGRAVITY ENGINE RUNNING.</div>
+                <div className="text-[9px] text-gray-600 font-mono italic animate-pulse">SYSTEM NOMINAL.</div>
             </div>
+
+            {/* Render overlay if active */}
+            {showReplay && <EncounterReplay onClose={() => setShowReplay(false)} />}
         </div>
     );
 }
