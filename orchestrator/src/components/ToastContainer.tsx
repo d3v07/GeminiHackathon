@@ -16,6 +16,9 @@ interface ToastContextType {
     error: (msg: string) => void;
     info: (msg: string) => void;
   };
+  success: (msg: string) => void;
+  error: (msg: string) => void;
+  info: (msg: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -45,6 +48,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           error: (msg) => addToast(msg, 'error'),
           info: (msg) => addToast(msg, 'info'),
         },
+        success: (msg) => addToast(msg, 'success'),
+        error: (msg) => addToast(msg, 'error'),
+        info: (msg) => addToast(msg, 'info'),
       }}
     >
       {children}
@@ -84,5 +90,5 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) throw new Error('useToast must be used within ToastProvider');
-  return context.toast;
+  return context;
 }
