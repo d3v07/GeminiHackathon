@@ -27,6 +27,7 @@
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.0",
     "@google-cloud/pubsub": "^4.9.0",
+    "@google-cloud/secret-manager": "^6.1.1",
     "@google-cloud/vertexai": "^1.10.0",
     "@google/genai": "^1.43.0",
     "@langchain/core": "^1.1.30",

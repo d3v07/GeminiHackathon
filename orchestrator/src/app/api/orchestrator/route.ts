@@ -1,16 +1,32 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
-import { GoogleGenAI } from '@google/genai';
-import { LanguageServiceClient } from '@google-cloud/language';
-import { PredictionServiceClient } from '@google-cloud/aiplatform';
 import { OrchestratorSchema } from '@/lib/schemas';
 
-// Init AI Clients
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' });
-const nlp = new LanguageServiceClient();
-const vertex = new PredictionServiceClient({
-    apiEndpoint: 'us-central1-aiplatform.googleapis.com'
-});
+type AiClient = {
+    models: {
+        generateContent: (input: {
+            model: string;
+            contents: Array<{ role: string; parts: Array<{ text: string }> }> | string;
+        }) => Promise<{ text?: string }>;
+    };
+};
+
+type NlpClient = {
+    analyzeSentiment: (input: {
+        document: { content: string; type: 'PLAIN_TEXT' };
+    }) => Promise<Array<{ documentSentiment?: { score?: number | null } }>>;
+};
+
+type VertexClient = {
+    predict: (input: {
+        endpoint: string;
+        instances: Array<unknown>;
+    }) => Promise<Array<{ predictions?: unknown[] }>>;
+};
+
+let aiClientPromise: Promise<AiClient> | null = null;
+let nlpClientPromise: Promise<NlpClient> | null = null;
+let vertexClientPromise: Promise<VertexClient> | null = null;
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 const LOCATION = 'us-central1';
@@ -18,6 +34,38 @@ const LOCATION = 'us-central1';
 const GEMINI_PRO = 'gemini-2.5-pro-preview-05-06';
 const PUBLISHER = 'google';
 const MODEL = 'text-embedding-004';
+
+async function getAiClient() {
+    if (!aiClientPromise) {
+        aiClientPromise = import('@google/genai').then(({ GoogleGenAI }) => (
+            new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' }) as AiClient
+        ));
+    }
+
+    return aiClientPromise;
+}
+
+async function getNlpClient() {
+    if (!nlpClientPromise) {
+        nlpClientPromise = import('@google-cloud/language').then(({ LanguageServiceClient }) => (
+            new LanguageServiceClient() as NlpClient
+        ));
+    }
+
+    return nlpClientPromise;
+}
+
+async function getVertexClient() {
+    if (!vertexClientPromise) {
+        vertexClientPromise = import('@google-cloud/aiplatform').then(({ PredictionServiceClient }) => (
+            new PredictionServiceClient({
+            apiEndpoint: 'us-central1-aiplatform.googleapis.com'
+            }) as VertexClient
+        ));
+    }
+
+    return vertexClientPromise;
+}
 
 type AgentMemoryEntry = {
     parts?: Array<{ text?: string }>;
@@ -70,7 +118,8 @@ async function getEmbedding(text: string) {
     if (!text) return [];
     try {
         const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/${PUBLISHER}/models/${MODEL}`;
-        const [response] = await vertex.predict({
+        const vertexClient = await getVertexClient();
+        const [response] = await vertexClient.predict({
             endpoint,
             instances: [{ structValue: { fields: { content: { stringValue: text } } } }],
         });
@@ -158,34 +207,35 @@ export async function POST(request: Request) {
 
         // 2. Proximity calculation logic
         const snapshot = await agentsRef.get();
-        let collisionDetected = false;
-        let collidingAgentId: string | null = null;
-        let collidingAgentData: AgentRecord | null = null;
+        let collidingAgent: { id: string; data: AgentRecord } | null = null;
 
-        snapshot.forEach(doc => {
+        for (const doc of snapshot.docs) {
             const otherAgent = doc.data() as AgentRecord;
             const otherAgentId = doc.id;
 
-            if (otherAgentId === agentId) return;
+            if (otherAgentId === agentId) continue;
 
             const otherLat = typeof otherAgent.lat === 'number' ? otherAgent.lat : Number(otherAgent.lat);
             const otherLng = typeof otherAgent.lng === 'number' ? otherAgent.lng : Number(otherAgent.lng);
-            if (Number.isNaN(otherLat) || Number.isNaN(otherLng)) return;
+            if (Number.isNaN(otherLat) || Number.isNaN(otherLng)) continue;
 
             const distance = getDistanceFromLatLonInM(lat, lng, otherLat, otherLng);
 
             if (distance < INTERACTION_RADIUS_METERS && !otherAgent.isInteracting) {
-                collisionDetected = true;
-                collidingAgentId = otherAgentId;
-                collidingAgentData = otherAgent;
+                collidingAgent = {
+                    id: otherAgentId,
+                    data: otherAgent,
+                };
+                break;
             }
-        });
+        }
 
-        if (collisionDetected && collidingAgentId && collidingAgentData) {
+        if (collidingAgent) {
             // Fetch fresh doc for A
             const agentADoc = await agentsRef.doc(agentId).get();
             const agentAData = (agentADoc.data() as AgentRecord | undefined) || {};
-            const agentBData = collidingAgentData;
+            const collidingAgentId = collidingAgent.id;
+            const agentBData = collidingAgent.data;
 
             // Mark both as interacting
             await agentsRef.doc(agentId).update({ isInteracting: true, interactingWith: collidingAgentId });
@@ -249,6 +299,7 @@ export async function POST(request: Request) {
             // Call Gemini 3 Flash directly
             let transcript = "Two agents nod silently as they pass.";
             try {
+                const ai = await getAiClient();
                 const geminiResponse = await ai.models.generateContent({
                     model: GEMINI_PRO,
                     contents: [{ role: 'user', parts: [{ text: prompt }] }]
@@ -263,7 +314,8 @@ export async function POST(request: Request) {
             // Cloud Natural Language sentiment analysis
             let sentimentScore = 0;
             try {
-                const [sentimentResult] = await nlp.analyzeSentiment({
+                const nlpClient = await getNlpClient();
+                const [sentimentResult] = await nlpClient.analyzeSentiment({
                     document: { content: transcript, type: 'PLAIN_TEXT' }
                 });
                 sentimentScore = sentimentResult.documentSentiment?.score || 0;
