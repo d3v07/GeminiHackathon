@@ -3,6 +3,24 @@ import { adminDb } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
+type EncounterRecord = {
+    timestamp?: number | string;
+    [key: string]: unknown;
+};
+
+function toTimestampValue(value: number | string | undefined): number {
+    if (typeof value === 'number') {
+        return value;
+    }
+
+    if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    }
+
+    return 0;
+}
+
 export async function GET(
     _req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -34,14 +52,19 @@ export async function GET(
         // Fetch recent encounters
         const encSnapshot = await adminDb.collection('encounters')
             .where('participants', 'array-contains', id)
-            .orderBy('timestamp', 'desc')
-            .limit(10)
             .get();
 
-        const encounters = encSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
+        const encounters = encSnapshot.docs
+            .map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            }))
+            .sort((left, right) => {
+                const leftEncounter = left as EncounterRecord;
+                const rightEncounter = right as EncounterRecord;
+                return toTimestampValue(rightEncounter.timestamp) - toTimestampValue(leftEncounter.timestamp);
+            })
+            .slice(0, 10);
 
         return NextResponse.json({
             ...agentData,
