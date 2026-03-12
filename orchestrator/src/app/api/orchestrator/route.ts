@@ -15,10 +15,55 @@ const vertex = new PredictionServiceClient({
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 const LOCATION = 'us-central1';
 
-const GEMINI_FLASH = 'gemini-2.5-flash-preview-05-20';
 const GEMINI_PRO = 'gemini-2.5-pro-preview-05-06';
 const PUBLISHER = 'google';
 const MODEL = 'text-embedding-004';
+
+type AgentMemoryEntry = {
+    parts?: Array<{ text?: string }>;
+};
+
+type AgentRecord = {
+    lat?: number | string;
+    lng?: number | string;
+    isInteracting?: boolean;
+    memoryContext?: string;
+    defaultTask?: string;
+    role?: string;
+    sentimentScore?: number;
+    [key: string]: unknown;
+};
+
+type VertexPrediction = {
+    structValue?: {
+        fields?: {
+            embeddings?: {
+                structValue?: {
+                    fields?: {
+                        values?: {
+                            listValue?: {
+                                values?: Array<{ numberValue?: number | null }>;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+};
+
+function parseMemoryHistory(rawMemory: unknown): AgentMemoryEntry[] {
+    if (typeof rawMemory !== 'string' || !rawMemory) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(rawMemory) as unknown;
+        return Array.isArray(parsed) ? (parsed as AgentMemoryEntry[]) : [];
+    } catch {
+        return [];
+    }
+}
 
 // Helper for Vertex AI Embeddings
 async function getEmbedding(text: string) {
@@ -29,10 +74,11 @@ async function getEmbedding(text: string) {
             endpoint,
             instances: [{ structValue: { fields: { content: { stringValue: text } } } }],
         });
-        const embeddings = response.predictions?.[0]?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
-        return embeddings?.map((v: any) => v.numberValue) || [];
-    } catch (e) {
-        console.warn("Vertex Embedding failed:", e);
+        const firstPrediction = response.predictions?.[0] as VertexPrediction | undefined;
+        const embeddings = firstPrediction?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
+        return embeddings?.map((value) => value.numberValue ?? 0) ?? [];
+    } catch (error) {
+        console.warn('Vertex Embedding failed:', error);
         return [];
     }
 }
@@ -52,16 +98,15 @@ function cosineSimilarity(vecA: number[], vecB: number[]) {
 
 // Haversine formula to calculate distance between two coordinates in meters
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
-    var R = 6371000; // Radius of the earth in m
-    var dLat = deg2rad(lat2 - lat1);
-    var dLon = deg2rad(lon2 - lon1);
-    var a =
+    const radius = 6371000;
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    var d = R * c; // Distance in m
-    return d;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return radius * c;
 }
 
 function deg2rad(deg: number) {
@@ -114,16 +159,20 @@ export async function POST(request: Request) {
         // 2. Proximity calculation logic
         const snapshot = await agentsRef.get();
         let collisionDetected = false;
-        let collidingAgentId = null;
-        let collidingAgentData: any = null;
+        let collidingAgentId: string | null = null;
+        let collidingAgentData: AgentRecord | null = null;
 
         snapshot.forEach(doc => {
-            const otherAgent = doc.data();
+            const otherAgent = doc.data() as AgentRecord;
             const otherAgentId = doc.id;
 
             if (otherAgentId === agentId) return;
 
-            const distance = getDistanceFromLatLonInM(lat, lng, otherAgent.lat, otherAgent.lng);
+            const otherLat = typeof otherAgent.lat === 'number' ? otherAgent.lat : Number(otherAgent.lat);
+            const otherLng = typeof otherAgent.lng === 'number' ? otherAgent.lng : Number(otherAgent.lng);
+            if (Number.isNaN(otherLat) || Number.isNaN(otherLng)) return;
+
+            const distance = getDistanceFromLatLonInM(lat, lng, otherLat, otherLng);
 
             if (distance < INTERACTION_RADIUS_METERS && !otherAgent.isInteracting) {
                 collisionDetected = true;
@@ -135,7 +184,7 @@ export async function POST(request: Request) {
         if (collisionDetected && collidingAgentId && collidingAgentData) {
             // Fetch fresh doc for A
             const agentADoc = await agentsRef.doc(agentId).get();
-            const agentAData = agentADoc.data() || {};
+            const agentAData = (agentADoc.data() as AgentRecord | undefined) || {};
             const agentBData = collidingAgentData;
 
             // Mark both as interacting
@@ -145,9 +194,8 @@ export async function POST(request: Request) {
             // Fourth task: Vertex AI Embeddings for Encounter Context
             let sharedContext = "";
             try {
-                // Parse history safely
-                const historyA = JSON.parse(agentAData.memoryContext || '[]');
-                const historyB = JSON.parse(agentBData.memoryContext || '[]');
+                const historyA = parseMemoryHistory(agentAData.memoryContext);
+                const historyB = parseMemoryHistory(agentBData.memoryContext);
 
                 let bestSimilarity = -1;
                 let bestPair: { textA: string, textB: string } | null = null;
@@ -175,8 +223,8 @@ export async function POST(request: Request) {
                 if (bestSimilarity > 0.6 && bestPair) {
                     sharedContext = `Agent A's related memory: "${bestPair.textA.substring(0, 100)}". Agent B's related memory: "${bestPair.textB.substring(0, 100)}".`;
                 }
-            } catch (e) {
-                console.warn("Error during Vertex embeddings", e);
+            } catch (error) {
+                console.warn('Error during Vertex embeddings', error);
             }
 
             const prompt = `
@@ -208,8 +256,8 @@ export async function POST(request: Request) {
                 if (geminiResponse.text) {
                     transcript = geminiResponse.text;
                 }
-            } catch (e) {
-                console.error("Gemini Flash dialogue error", e);
+            } catch (error) {
+                console.error('Gemini dialogue error', error);
             }
 
             // Cloud Natural Language sentiment analysis
@@ -219,8 +267,8 @@ export async function POST(request: Request) {
                     document: { content: transcript, type: 'PLAIN_TEXT' }
                 });
                 sentimentScore = sentimentResult.documentSentiment?.score || 0;
-            } catch (e) {
-                console.error("Sentiment analysis error", e);
+            } catch (error) {
+                console.error('Sentiment analysis error', error);
             }
 
             // Write to encounters

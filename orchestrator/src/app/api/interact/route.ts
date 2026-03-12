@@ -5,19 +5,18 @@ import { GoogleGenAI } from '@google/genai';
 import language from '@google-cloud/language';
 import { adminDb } from '@/lib/firebase-admin';
 import { InteractSchema } from '@/lib/schemas';
+import { aegisGuard, scanOutput } from '../../../../../lib/aegis-agent';
+import { redactPII } from '../../../../../lib/pii-redactor';
 
 // Phase 4 Security: AegisAgent prompt defense
-const { aegisGuard, scanOutput } = require('../../../../../lib/aegis-agent');
-const { redactPII } = require('../../../../../lib/pii-redactor');
-
-let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+const privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 let geminiKey = process.env.GEMINI_API_KEY || '';
 if (!geminiKey) {
     try {
         const envStr = fs.readFileSync(path.join(process.cwd(), '../.env'), 'utf8');
         const match = envStr.match(/GEMINI_API_KEY=([^\n\r]+)/);
         if (match) geminiKey = match[1];
-    } catch (e) {
+    } catch {
         console.error('Failed to read root .env');
     }
 }
