@@ -8,6 +8,9 @@ const { handleEncounter } = require('./lib/encounter');
 const { publishTelemetry } = require('./lib/telemetry');
 const { encode: geohashEncode, queryNearbyAgents } = require('./lib/geohash');
 const { selectModel, MODELS } = require('./lib/model-router');
+const logger = require('./lib/logger').child({ service: 'worker' });
+const { toolCalls, toolErrors, geminiTokens, geminiCalls } = require('./lib/metrics');
+const { calculateCost } = require('./lib/cost');
 
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
@@ -26,6 +29,26 @@ const db = admin.firestore();
 const vertexAI = new VertexAI({ project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, location: 'us-central1' });
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// Budget guard: track per-agent cumulative cost
+const agentCosts = new Map(); // agentId -> { total, windowStart }
+const COST_LIMIT = parseFloat(process.env.AGENT_COST_LIMIT_HOURLY || '0.50');
+
+function trackCost(agentId, cost) {
+    const now = Date.now();
+    const entry = agentCosts.get(agentId) || { total: 0, windowStart: now };
+    if (now - entry.windowStart > 3_600_000) {
+        entry.total = 0;
+        entry.windowStart = now;
+    }
+    entry.total += cost;
+    agentCosts.set(agentId, entry);
+    if (entry.total >= COST_LIMIT) {
+        logger.warn({ agentId, totalCost: entry.total, limit: COST_LIMIT }, 'Agent hourly cost limit reached');
+        return true;
+    }
+    return false;
+}
+
 async function executeToolCall(name, args) {
     if (name === 'get_weather_mcp') {
         try {
@@ -36,6 +59,7 @@ async function executeToolCall(name, args) {
 
             // Map code to human readable
             const isRaining = current.weather?.length > 0 && current.weather[0].main.toLowerCase().includes('rain');
+            toolCalls.inc({ tool: name });
             return {
                 weather: isRaining ? "Raining" : "Clear",
                 temperature: `${current.main.temp}C`,
@@ -43,7 +67,8 @@ async function executeToolCall(name, args) {
                 status: "OK"
             };
         } catch (e) {
-            console.error("Weather API Error:", e);
+            logger.error({ err: e, tool: name }, 'Weather API error');
+            toolErrors.inc({ tool: name });
             return { weather: "Clear", temperature: "20C", error: "API Timeout" };
         }
     } else if (name === 'calculate_travel_time_mcp') {
@@ -75,12 +100,14 @@ async function executeToolCall(name, args) {
             if (data.routes && data.routes.length > 0) {
                 const durationString = data.routes[0].duration || "0s";
                 const seconds = parseInt(durationString.replace('s', ''), 10);
+                toolCalls.inc({ tool: name });
                 return { estimated_minutes: Math.ceil(seconds / 60), status: "OK" };
             } else {
                 return { error: "No route found.", response: data };
             }
         } catch (e) {
-            console.error("Google Maps API Error:", e);
+            logger.error({ err: e, tool: name }, 'Google Maps API error');
+            toolErrors.inc({ tool: name });
             throw new Error('API Timeout or Error');
         }
     } else if (name === 'describe_surroundings') {
@@ -88,9 +115,11 @@ async function executeToolCall(name, args) {
             const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${args.lat},${args.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
             const res = await fetch(url);
             const buffer = await res.arrayBuffer();
+            toolCalls.inc({ tool: name });
             return { base64: Buffer.from(buffer).toString('base64') };
         } catch (e) {
-            console.error("StreetView fetch error:", e);
+            logger.error({ err: e, tool: name }, 'StreetView fetch error');
+            toolErrors.inc({ tool: name });
             throw new Error('API Timeout or Error');
         }
     } else if (name === 'find_nearby_place_mcp') {
@@ -116,6 +145,7 @@ async function executeToolCall(name, args) {
             const data = await res.json();
             if (data.places && data.places.length > 0) {
                 const place = data.places[0];
+                toolCalls.inc({ tool: name });
                 return {
                     name: place.displayName?.text,
                     address: place.formattedAddress,
@@ -126,13 +156,15 @@ async function executeToolCall(name, args) {
             }
             return { error: "No places found for category" };
         } catch (e) {
-            console.error("Places API error:", e);
+            logger.error({ err: e, tool: name }, 'Places API error');
+            toolErrors.inc({ tool: name });
             throw new Error('API Timeout or Error');
         }
     } else if (name === 'scan_for_nearby_agents') {
         try {
             const nearbyAgents = await queryNearbyAgents(db, args.agentId || '', args.lat, args.lng, args.radiusMeters || 200);
 
+            toolCalls.inc({ tool: name });
             if (nearbyAgents.length > 0) {
                 return {
                     status: "SUCCESS",
@@ -142,11 +174,13 @@ async function executeToolCall(name, args) {
             }
             return { status: "SUCCESS", message: "No other agents found within this radius. They might be in a different neighborhood." };
         } catch (e) {
-            console.error("Scanner tool error:", e);
+            logger.error({ err: e, tool: name }, 'Scanner tool error');
+            toolErrors.inc({ tool: name });
             throw new Error('API Timeout or Error');
         }
     } else if (name === 'move_to_location') {
         // This tool is used to formally register the move in the state
+        toolCalls.inc({ tool: name });
         return { status: "SUCCESS", lat: args.lat, lng: args.lng, destination: args.destination_name };
     }
     return { error: "Unknown tool" };
@@ -181,9 +215,20 @@ async function generateGeminiContent(messages, mcpTools) {
             }
         }
 
+        const usage = response.usageMetadata;
+        if (usage) {
+            const model = selectModel({ taskType: 'tool_calling' });
+            geminiCalls.inc({ agent_id: 'unknown', model });
+            geminiTokens.inc({ agent_id: 'unknown', model, direction: 'input' }, usage.promptTokenCount || 0);
+            geminiTokens.inc({ agent_id: 'unknown', model, direction: 'output' }, usage.candidatesTokenCount || 0);
+            const cost = calculateCost(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
+            trackCost('unknown', cost.totalCost);
+            logger.info({ model, promptTokens: usage.promptTokenCount, candidatesTokens: usage.candidatesTokenCount, totalCost: cost.totalCost }, 'Gemini API usage');
+        }
+
         return parsedResponse;
     } catch (e) {
-        console.error("Gemini AI Error:", e);
+        logger.error({ err: e }, 'Gemini AI error');
         throw e;
     }
 }
@@ -204,11 +249,11 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
             lastUpdated: new Date().toISOString(),
             isInteracting: false
         }, { merge: true });
-        console.log(`[NPC: ${npcId}] State persisted to Firestore at ${currentState.lat}, ${currentState.lng}`);
+        logger.info({ npcId, lat: currentState.lat, lng: currentState.lng }, 'State persisted to Firestore');
 
         // Publish telemetry event (Pub/Sub if available, local buffer fallback)
         publishTelemetry(npcId, currentState, currentAction).catch(e =>
-            console.warn(`[NPC: ${npcId}] Telemetry publish failed:`, e.message)
+            logger.warn({ npcId, err: e }, 'Telemetry publish failed')
         );
 
         // Check for interaction status (cognitive collision detection)
@@ -229,19 +274,18 @@ async function pingOrchestrator(npcId, currentState, currentAction) {
                 }
             }
         } catch (dbErr) {
-            console.error("Firestore poll error:", dbErr.message);
+            logger.error({ err: dbErr, npcId }, 'Firestore poll error');
         }
 
         return { success: true, isInteracting: false };
     } catch (e) {
-        console.error(`[NPC: ${npcId}] Failed to persist state:`, e.message);
+        logger.error({ err: e, npcId }, 'Failed to persist state');
         return { success: false, error: e.message };
     }
 }
 
 async function generateEncounterDialogue(agentA_state, agentB_state) {
-    console.log(`\n--- TEMPORAL ENCOUNTER DETECTED ---`);
-    console.log(`NPC A (${agentA_state.role}) meets NPC B (${agentB_state.role})`);
+    logger.info({ roleA: agentA_state.role, roleB: agentB_state.role }, 'Temporal encounter detected');
 
     const collisionPrompt = `
 You are generating a localized, asynchronous dialogue between two NPCs who have just crossed paths at the SAME coordinates in real-world NYC.
@@ -271,13 +315,22 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 
         const textResponse = response.text || "";
 
-        console.log(`\n[Multi-Agent Dialogue]\n${textResponse}`);
+        const usage = response.usageMetadata;
+        if (usage) {
+            const model = selectModel({ taskType: 'encounter' });
+            geminiCalls.inc({ agent_id: 'encounter', model });
+            geminiTokens.inc({ agent_id: 'encounter', model, direction: 'input' }, usage.promptTokenCount || 0);
+            geminiTokens.inc({ agent_id: 'encounter', model, direction: 'output' }, usage.candidatesTokenCount || 0);
+            const cost = calculateCost(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
+            trackCost('encounter', cost.totalCost);
+            logger.info({ model, promptTokens: usage.promptTokenCount, candidatesTokens: usage.candidatesTokenCount, totalCost: cost.totalCost }, 'Encounter Gemini API usage');
+        }
 
-
+        logger.info({ dialogueLength: textResponse.length }, 'Multi-agent dialogue generated');
 
         return textResponse; // Not strictly needed, Temporal uses orchestrator API anyway
     } catch (e) {
-        console.error("Error during durable multi-agent interaction:", e);
+        logger.error({ err: e }, 'Error during durable multi-agent interaction');
         throw e;
     }
 }
