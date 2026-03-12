@@ -5,10 +5,14 @@ import MapUI from '@/components/MapUI';
 import ControlPanel from '@/components/ControlPanel';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { SimulationProvider } from '@/lib/SimulationContext';
+import DebugPanel from '@/components/DebugPanel';
+import { useToast } from '@/components/ToastContainer';
+import * as Sentry from '@sentry/nextjs';
 
 export default function Home() {
   const [isServerActive, setIsServerActive] = useState(true);
   const [showManual, setShowManual] = useState(false);
+  const { success, error } = useToast();
 
   const testTrigger = async () => {
     try {
@@ -23,14 +27,18 @@ export default function Home() {
         }),
       });
       if (!res.ok) throw new Error(`Spawn failed: ${res.status}`);
-      console.log(await res.json());
-    } catch (e) {
+      const data = await res.json();
+      console.log(data);
+      success('Test NPC successfully spawned.');
+    } catch (e: any) {
       console.error('Failed to spawn test NPC:', e);
+      error(e.message || 'Failed to spawn test NPC');
     }
   };
 
   return (
     <SimulationProvider enabled={isServerActive}>
+      <DebugPanel />
       <main className="flex h-screen w-screen bg-black overflow-hidden flex-col md:flex-row relative">
 
         {/* USER MANUAL MODAL */}
@@ -81,9 +89,9 @@ export default function Home() {
         we simulate the agent's logic pausing until restoration, perfectly demoing durability. 
       */}
         <div className={`flex-grow h-1/2 md:h-full transition-opacity duration-1000 relative ${isServerActive ? 'opacity-100' : 'opacity-20 pointer-events-none blur-sm'}`}>
-          <ErrorBoundary fallbackLabel="Map">
+          <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorBoundary fallbackLabel="Map" errorOverride={error as Error} />}>
             <MapUI />
-          </ErrorBoundary>
+          </Sentry.ErrorBoundary>
 
           {/* Help Button overlaid on map */}
           <button
@@ -96,12 +104,12 @@ export default function Home() {
         </div>
 
         <div className="w-full md:w-[450px] h-1/2 md:h-full border-t md:border-t-0 md:border-l border-gray-700 bg-gray-900 shadow-xl flex flex-col relative z-20">
-          <ErrorBoundary fallbackLabel="Control Panel">
+          <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorBoundary fallbackLabel="Control Panel" errorOverride={error as Error} />}>
             <ControlPanel
               onSimulateKill={() => setIsServerActive(false)}
               onRestart={() => setIsServerActive(true)}
             />
-          </ErrorBoundary>
+          </Sentry.ErrorBoundary>
 
           <div className="p-3 md:p-6 bg-gray-800 border-t border-gray-700 font-mono text-xs md:text-sm text-gray-400 flex flex-col md:flex-row justify-between items-center gap-2">
             <div>Status: <span className={isServerActive ? "text-green-400 font-bold" : "text-red-500 font-bold mb-4"}>{isServerActive ? "ONLINE" : "OFFLINE"}</span></div>
