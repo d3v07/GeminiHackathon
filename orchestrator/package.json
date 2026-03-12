@@ -16,6 +16,7 @@
     "@google-cloud/language": "^7.2.1",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/genai": "^1.43.0",
+    "@sentry/nextjs": "^10.43.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.4",
     "@vis.gl/react-google-maps": "^1.7.1",

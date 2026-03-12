@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useToast } from '@/components/ToastContainer';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
 import { useSimulation } from '@/lib/SimulationContext';
 import dynamic from 'next/dynamic';
@@ -77,6 +79,8 @@ export default function MapUI() {
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [commMessage, setCommMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const { user } = useUser();
+    const { success, error: toastError } = useToast();
     
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -100,7 +104,6 @@ export default function MapUI() {
         const handleJump = (e: any) => {
             if (e.detail?.lat && e.detail?.lng) {
                 setMapCenter({ lat: e.detail.lat, lng: e.detail.lng });
-                // If in social graph, switch back to map view
                 setShowSocialGraph(false);
                 setShowExploreMode(false);
             }
@@ -170,14 +173,12 @@ export default function MapUI() {
 
         fetchDetails();
     }, [selectedAgent?.id]);
-
     // TTS Auto-play logic
     const prevDialogRef = useRef<string | null>(null);
     useEffect(() => {
         if (selectedAgent && selectedAgent.lastEncounterDialogue !== prevDialogRef.current) {
             prevDialogRef.current = selectedAgent.lastEncounterDialogue;
             if (selectedAgent.lastEncounterDialogue && prevDialogRef.current) {
-                // Pass agent role as voice mapping hint the backend might use
                 speak(selectedAgent.lastEncounterDialogue, selectedAgent.id, selectedAgent.role);
             }
         }
@@ -204,7 +205,7 @@ export default function MapUI() {
         setCommMessage('');
 
         try {
-            await fetch('/api/interact', {
+            const res = await fetch('/api/interact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -213,8 +214,12 @@ export default function MapUI() {
                     role: selectedAgent.role
                 })
             });
-        } catch (err) {
-            console.error(err);
+            if (!res.ok) throw new Error(`API returned ${res.status}`);
+            const data = await res.json();
+            success('Message transmitted to target proxy.');
+        } catch (e: any) {
+            console.error('Error sending message:', e);
+            toastError(e.message || 'Transmission failed. Signal lost.');
         } finally {
             setIsSending(false);
         }

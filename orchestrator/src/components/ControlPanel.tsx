@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSimulation } from '@/lib/SimulationContext';
 import EncounterReplay from './EncounterReplay';
+import HealthDashboard from './HealthDashboard';
 
 interface Encounter {
     id: string;
@@ -158,37 +159,10 @@ export default function ControlPanel({
                     </button>
                 </div>
             </div>
+            {/* LIVE GLOBAL STATS — Replaced by HealthDashboard polling /api/metrics */}
+            <HealthDashboard />
 
-            {/* LIVE GLOBAL STATS */}
-            <div className="grid grid-cols-3 gap-3 md:gap-5 mb-4 md:mb-8 relative z-10">
-                <div className="bg-gradient-to-br from-gray-900/60 to-black/60 border border-emerald-500/20 rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 blur-xl group-hover:bg-emerald-500/20 transition-colors"></div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                        Active Entities
-                    </span>
-                    <span className="text-4xl font-black text-emerald-400 font-mono tracking-tighter">{isLoading ? <span className="inline-block w-12 h-9 bg-gray-800 rounded animate-pulse"></span> : activeAgents.toString().padStart(2, '0')}</span>
-                </div>
-                <div className="bg-gradient-to-br from-gray-900/60 to-black/60 border border-sky-500/20 rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-sky-500/10 blur-xl group-hover:bg-sky-500/20 transition-colors"></div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 bg-sky-500 rounded-full"></div>
-                        Cognitive Collisions
-                    </span>
-                    <span className="text-4xl font-black text-sky-400 font-mono tracking-tighter">{isLoading ? <span className="inline-block w-14 h-9 bg-gray-800 rounded animate-pulse"></span> : totalEncounters.toString().padStart(3, '0')}</span>
-                </div>
-                <div className="bg-gradient-to-br from-gray-900/60 to-black/60 border border-amber-500/20 rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 blur-xl group-hover:bg-amber-500/20 transition-colors"></div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                        Global Mood Index
-                    </span>
-                    <span className={`text-4xl font-black font-mono tracking-tighter ${avgSentiment > 0.1 ? 'text-emerald-400' : avgSentiment < -0.1 ? 'text-rose-400' : 'text-amber-400'}`}>
-                        {isLoading ? <span className="inline-block w-16 h-9 bg-gray-800 rounded animate-pulse"></span> : <>{avgSentiment > 0 ? '+' : ''}{avgSentiment.toFixed(2)}</>}
-                    </span>
-                </div>
-            </div>
-
+            {/* LIVE ENCOUNTER STREAM */}
             <div className="flex-1 overflow-hidden grid grid-cols-1 gap-6 relative z-10">
                 {/* Sentiment & Telemetry Analytics */}
                 <div className="bg-black/40 backdrop-blur-md border border-gray-800/80 rounded-xl flex flex-col overflow-hidden shadow-2xl">
