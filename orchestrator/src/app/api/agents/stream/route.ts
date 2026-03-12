@@ -10,7 +10,7 @@ export async function GET() {
 
     const stream = new ReadableStream({
         start(controller) {
-            const send = (data: string) => {
+            const sendRaw = (data: string) => {
                 try {
                     controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 } catch {
@@ -18,9 +18,22 @@ export async function GET() {
                 }
             };
 
+            const sendEvent = (eventType: string, payload: Record<string, unknown>) => {
+                try {
+                    controller.enqueue(
+                        encoder.encode(`event: ${eventType}\ndata: ${JSON.stringify({ type: eventType, ts: Date.now(), ...payload })}\n\n`)
+                    );
+                } catch {
+                    // Stream closed by client
+                }
+            };
+
+            // Deterministic initial event for reconnecting clients.
+            sendEvent('hello', { message: 'agents stream connected' });
+
             // Heartbeat every 15s to keep connection alive
             heartbeatInterval = setInterval(() => {
-                send(JSON.stringify({ type: 'heartbeat', ts: Date.now() }));
+                sendEvent('heartbeat', {});
             }, 15000);
 
             // Subscribe to agent updates
@@ -30,11 +43,13 @@ export async function GET() {
                         id: doc.id,
                         ...doc.data(),
                     }));
-                    send(JSON.stringify(agents));
+                    // Keep default message payload for existing EventSource onmessage consumers.
+                    sendRaw(JSON.stringify(agents));
+                    sendEvent('agents', { count: agents.length });
                 },
                 (err) => {
                     console.error('SSE Firestore listener error:', err);
-                    send(JSON.stringify({ type: 'error', message: 'Listener error' }));
+                    sendEvent('error', { message: 'Listener error' });
                 }
             );
         },

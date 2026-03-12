@@ -8,8 +8,15 @@ export async function GET(req: Request) {
         const url = new URL(req.url);
         const boundsParam = url.searchParams.get('bounds');
 
+        type AgentState = {
+            id: string;
+            lat?: number | string;
+            lng?: number | string;
+            [key: string]: unknown;
+        };
+
         const agentsSnapshot = await adminDb.collection('agents').get();
-        let agents = agentsSnapshot.docs.map(doc => ({
+        let agents: AgentState[] = agentsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
@@ -23,7 +30,7 @@ export async function GET(req: Request) {
                 const maxLat = Math.max(lat1, lat2);
                 const minLng = Math.min(lng1, lng2);
                 const maxLng = Math.max(lng1, lng2);
-                agents = agents.filter((a: any) => {
+                agents = agents.filter((a) => {
                     const lat = Number(a.lat);
                     const lng = Number(a.lng);
                     return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;

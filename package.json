@@ -9,7 +9,9 @@
     "dev:down": "docker compose down",
     "worker": "node worker.js",
     "spawn": "node spawn-agents.js",
-    "streamer": "node scripts/bigquery-streamer.js"
+    "streamer": "node scripts/bigquery-streamer.js",
+    "seed:s6": "node scripts/seed-sprint6-fixtures.js",
+    "smoke:s6": "node scripts/smoke-sprint6-apis.js"
   },
   "repository": {
     "type": "git",
