@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
+import { VertexAI } from '@google-cloud/vertexai';
 import language from '@google-cloud/language';
 import { adminDb } from '@/lib/firebase-admin';
 import { InteractSchema } from '@/lib/schemas';
@@ -24,6 +25,16 @@ if (!geminiKey) {
 
 // Initialize GCP Clients
 const ai = new GoogleGenAI({ apiKey: geminiKey });
+const vertexAI = new VertexAI({ 
+    project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, 
+    location: 'us-central1',
+    googleAuthOptions: {
+        credentials: {
+            client_email: process.env.FIREBASE_CLIENT_EMAIL,
+            private_key: privateKey.replace(/\\n/g, '\n')
+        }
+    }
+});
 const nlpClient = new language.LanguageServiceClient({
     credentials: {
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
@@ -63,12 +74,63 @@ export async function POST(req: Request) {
         const sentimentScore = sentimentResult.documentSentiment?.score || 0;
 
         // 2. Generate an AI response from the targeted Persona (using sanitized input)
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `You are the ${role} in New York City. A mysterious overseer (the User) has just transmitted a message directly into your mind via a Comm-Link. Respond briefly in 1-2 sentences in-character to this message: "${cleanMessage}"`
-        });
+        let aiReply = "System anomaly: Connection lost.";
+        const prompt = `You are the ${role} in New York City. A mysterious overseer (the User) has just transmitted a message directly into your mind via a Comm-Link. Respond briefly in 1-2 sentences in-character to this message: "${cleanMessage}"`;
 
-        let aiReply = response.text || "System anomaly: Connection lost.";
+        try {
+            // Choice 1: Gemini 2.0 Flash with Grounding (Balanced & Fast)
+            const groundedClient = new GoogleGenAI({ 
+                apiKey: geminiKey,
+                vertexai: true,
+                project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                location: 'us-central1'
+            });
+
+            const result = await groundedClient.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    tools: [{ googleSearch: {} }],
+                    thinkingConfig: { includeThoughts: true }
+                }
+            });
+            
+            aiReply = result.text || aiReply;
+            console.log(`[Unified-GenAI] Grounded 2.0 success with ${aiReply.substring(0, 30)}...`);
+        } catch (vErr: any) {
+            console.warn(`[Unified-GenAI] Grounded 2.0 failed: ${vErr.message}. Trying 1.5 Flash...`);
+            try {
+                // Choice 2: Gemini 1.5 Flash Grounded (Higher Quota)
+                const flashClient = new GoogleGenAI({ 
+                    apiKey: geminiKey,
+                    vertexai: true,
+                    project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                    location: 'us-central1'
+                });
+                const result = await flashClient.models.generateContent({
+                    model: 'gemini-1.5-flash',
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    config: {
+                        tools: [{ googleSearch: {} }]
+                    }
+                });
+                aiReply = result.text || aiReply;
+                console.log(`[Unified-GenAI] Grounded 1.5 success with ${aiReply.substring(0, 30)}...`);
+            } catch (pErr: any) {
+                console.warn(`[Unified-GenAI] Grounded 1.5 failed. Falling back to simple AI...`);
+                try {
+                    // Choice 3: Standard Gemini 1.5 Flash (No Grounding, High Quota)
+                    const standardResult = await ai.models.generateContent({
+                        model: 'gemini-1.5-flash',
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                    });
+                    aiReply = standardResult.text || aiReply;
+                } catch (sErr: any) {
+                    console.error(`[Unified-GenAI] All fallbacks failed:`, sErr.message);
+                    aiReply = "The Comm-Link is currently restricted. Check GCP API status.";
+                }
+            }
+        }
 
         // Phase 4: Scan output for leaked system prompt content
         const outputScan = scanOutput(aiReply);
@@ -86,12 +148,13 @@ export async function POST(req: Request) {
             lastUpdated: Date.now()
         }, { merge: true });
 
+        console.log(`[Comm-Link] Agent ${agentId} replied: "${aiReply}"`);
         console.log(`[Comm-Link] ${agentId} sentiment shifted to ${sentimentScore} based on User interaction.`);
 
         return NextResponse.json({ success: true, aiReply, sentimentScore });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('API /interact error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
     }
 }
