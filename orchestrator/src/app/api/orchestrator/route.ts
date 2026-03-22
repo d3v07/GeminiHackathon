@@ -184,8 +184,8 @@ export async function POST(request: Request) {
         if (collisionDetected && collidingAgentId && collidingAgentData) {
             // Fetch fresh doc for A
             const agentADoc = await agentsRef.doc(agentId).get();
-            const agentAData = (agentADoc.data() as AgentRecord | undefined) || {};
-            const agentBData = collidingAgentData;
+            const agentAData = (agentADoc.data() || {}) as AgentRecord;
+            const agentBData = collidingAgentData as AgentRecord;
 
             // Mark both as interacting
             await agentsRef.doc(agentId).update({ isInteracting: true, interactingWith: collidingAgentId });
