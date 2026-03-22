@@ -1,0 +1,11 @@
+147	OPEN	S17-3: AV Testing Frontend — Replay Dashboard & Edge Case Library	sprint-17	2026-03-09T15:37:49Z
+143	OPEN	S16-3: AV Testing Frontend — Trajectory Viewer & Controls	sprint-16	2026-03-09T15:37:31Z
+139	OPEN	S15-3: Research Frontend — Experiment Dashboard & Export	sprint-15	2026-03-09T15:37:07Z
+135	OPEN	S14-3: Research Frontend — Population Config & Opinion Timeline	sprint-14	2026-03-09T15:36:50Z
+131	OPEN	S13-3: Training Frontend — Replay Viewer & Analytics	sprint-13	2026-03-09T15:36:26Z
+127	OPEN	S12-3: Training Frontend — Session UI & Scenario Picker	sprint-12	2026-03-09T15:36:08Z
+123	OPEN	S11-3: Comparison Dashboard & Evacuation Visualization	sprint-11	2026-03-09T15:35:45Z
+119	OPEN	S10-3: Urban Planning Frontend — Scenario Controls & Heatmap	sprint-10	2026-03-09T15:35:26Z
+115	OPEN	S9-3: Crowd Behavior & Advanced UC1 Frontend	sprint-9	2026-03-09T15:34:58Z
+111	OPEN	S8-3: Game World Frontend — Reputation & Rumor Panels	sprint-8	2026-03-09T15:34:23Z
+106	OPEN	S7.3: DNS, CDN, security headers, frontend bundle optimization, Lighthouse	P1, infra, frontend, sprint-7	2026-03-09T15:05:27Z
