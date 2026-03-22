@@ -1,0 +1,48 @@
+title:	S7.3: DNS, CDN, security headers, frontend bundle optimization, Lighthouse
+state:	OPEN
+author:	d3v07
+labels:	frontend, infra, P1, sprint-7
+comments:	0
+assignees:	kushyarwar
+projects:	
+milestone:	
+number:	106
+--
+## S7.3 — DNS, CDN, Security Headers & Frontend Optimization
+
+**Sprint**: 7 (Production) · **Order**: 3 of 5 · **Assignee**: kushyarwar (frontend) + d3v07 (DNS/CDN)  
+**Previous**: S7.1 hardened Docker images and env config. S7.2 deployed all 3 services to GCP Cloud Run. The app is live on a Cloud Run URL.
+
+### Context
+The app works on a raw Cloud Run URL but needs a proper domain, CDN for performance, security headers, and frontend build optimization before it's presentable.
+
+### What to Do
+
+- [ ] **Configure custom domain** — Set up DNS for the chosen domain (e.g., metropolis.app or similar). Point to Cloud Run via Cloudflare DNS. Enable Cloudflare proxy for CDN + DDoS protection.
+- [ ] **Enable Cloudflare caching** — Cache static assets (JS, CSS, images, map tiles) at the edge. Set cache rules: static = 1 week, API = no-cache. Enable Brotli compression.
+- [ ] **Add security headers in next.config.ts** — Content-Security-Policy (restrict script sources), X-Frame-Options (DENY), X-Content-Type-Options (nosniff), Referrer-Policy (strict-origin-when-cross-origin), Strict-Transport-Security (HSTS). Test with securityheaders.com.
+- [ ] **Frontend bundle optimization** — Run `next build` and analyze bundle with `@next/bundle-analyzer`. Identify large chunks. Lazy-load heavy components (social graph, explore mode, encounter replay). Tree-shake unused d3/vis-network modules. Target: initial bundle < 300KB gzipped.
+- [ ] **Image optimization** — Use `next/image` for any static images. Ensure Google Maps tiles are loaded efficiently (no unnecessary re-renders). Preload critical fonts.
+- [ ] **Lighthouse audit** — Run Lighthouse on the production URL. Target scores: Performance > 80, Accessibility > 90, Best Practices > 90, SEO > 80. Fix any critical findings.
+- [ ] **Cross-browser testing** — Verify the app works on: Chrome (latest), Safari (latest), Firefox (latest), Edge (latest). Document any browser-specific issues.
+
+### How to Verify
+```bash
+# DNS resolves
+dig metropolis.example.com
+
+# Security headers
+curl -I https://metropolis.example.com | grep -iE "x-frame|content-security|strict-transport"
+
+# Bundle size
+cd orchestrator && ANALYZE=true npm run build
+# Check .next/analyze/client.html — largest chunk < 300KB
+
+# Lighthouse
+npx lighthouse https://metropolis.example.com --output=json | jq '.categories.performance.score'
+# Should be > 0.8
+```
+
+### What's Next
+S7.4 does load testing, monitoring/alerting setup, and production runbook.
+

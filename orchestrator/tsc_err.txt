@@ -1,0 +1,7 @@
+src/app/api/orchestrator/route.ts(198,64): error TS2339: Property 'memoryContext' does not exist on type 'never'.
+src/app/api/orchestrator/route.ts(240,32): error TS2339: Property 'role' does not exist on type 'never'.
+src/app/api/orchestrator/route.ts(241,36): error TS2339: Property 'lat' does not exist on type 'never'.
+src/app/api/orchestrator/route.ts(241,55): error TS2339: Property 'lng' does not exist on type 'never'.
+src/app/api/orchestrator/route.ts(242,39): error TS2339: Property 'defaultTask' does not exist on type 'never'.
+src/app/api/orchestrator/route.ts(277,71): error TS2339: Property 'role' does not exist on type 'never'.
+src/app/api/orchestrator/route.ts(287,42): error TS2339: Property 'sentimentScore' does not exist on type 'never'.

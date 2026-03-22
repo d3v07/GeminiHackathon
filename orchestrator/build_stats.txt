@@ -1,0 +1,62 @@
+
+> orchestrator@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  ┬╖ clientTraceMetadata
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 22.4s
+  Running next.config.js provided runAfterProductionCompile ...
+Γ£ô Completed runAfterProductionCompile in 417ms
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+Firebase admin properly injected via root JSON key.
+  Generating static pages using 15 workers (0/9) ...
+Firebase admin properly injected via root JSON key.
+  Generating static pages using 15 workers (2/9) 
+  Generating static pages using 15 workers (4/9) 
+  Generating static pages using 15 workers (6/9) 
+Γ£ô Generating static pages using 15 workers (9/9) in 2.2s
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ ╞Æ /api/agents/[id]
+Γö£ ╞Æ /api/agents/despawn
+Γö£ ╞Æ /api/agents/spawn
+Γö£ ╞Æ /api/agents/stream
+Γö£ ╞Æ /api/encounters/history
+Γö£ ╞Æ /api/healthz
+Γö£ ╞Æ /api/interact
+Γö£ ╞Æ /api/metrics
+Γö£ ╞Æ /api/orchestrator
+Γö£ ╞Æ /api/simulation/control
+Γö£ ╞Æ /api/simulation/status
+Γö£ ╞Æ /api/social-graph
+Γö£ ╞Æ /api/state
+Γö£ ╞Æ /api/streetview
+Γö£ ╞Æ /api/tts
+Γö£ ╞Æ /sign-in/[[...sign-in]]
+Γöö ╞Æ /sign-up/[[...sign-up]]
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

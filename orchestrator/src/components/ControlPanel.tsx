@@ -2,8 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSimulation } from '@/lib/SimulationContext';
-import EncounterReplay from './EncounterReplay';
+import dynamic from 'next/dynamic';
 import HealthDashboard from './HealthDashboard';
+
+const EncounterReplay = dynamic(() => import('./EncounterReplay'), {
+    ssr: false,
+    loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 text-sky-500 font-mono animate-pulse">Initializing Replay Matrix...</div>
+});
 
 interface Encounter {
     id: string;
