@@ -16,6 +16,11 @@ firebase-admin-key.json
 *.swo
 .vscode/
 .idea/
+.git/
+.github/
+.codex/
+docs/
+*.md
 
 # Logs
 *.log
@@ -26,3 +31,6 @@ pubsub.log
 .agents/
 skills-lock.json
 skills.sh
+coverage/
+orchestrator/src/**/*.test.ts
+orchestrator/src/**/*.spec.ts
