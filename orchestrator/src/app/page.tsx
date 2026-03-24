@@ -6,10 +6,14 @@ import ControlPanel from '@/components/ControlPanel';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import SimControls from '@/components/SimControls';
 import { SimulationProvider } from '@/lib/SimulationContext';
+import DebugPanel from '@/components/DebugPanel';
+import { useToast } from '@/components/ToastContainer';
+import * as Sentry from '@sentry/nextjs';
 
 export default function Home() {
   const [isServerActive, setIsServerActive] = useState(true);
   const [showManual, setShowManual] = useState(false);
+  const { success, error } = useToast();
 
   const testTrigger = async () => {
     try {
@@ -24,14 +28,18 @@ export default function Home() {
         }),
       });
       if (!res.ok) throw new Error(`Spawn failed: ${res.status}`);
-      console.log(await res.json());
-    } catch (e) {
+      const data = await res.json();
+      console.log(data);
+      success('Test NPC successfully spawned.');
+    } catch (e: any) {
       console.error('Failed to spawn test NPC:', e);
+      error(e.message || 'Failed to spawn test NPC');
     }
   };
 
   return (
     <SimulationProvider enabled={isServerActive}>
+      <DebugPanel />
       <main className="flex h-screen w-screen bg-black overflow-hidden flex-col md:flex-row relative">
 
         {/* USER MANUAL MODAL */}
@@ -84,7 +92,7 @@ export default function Home() {
         <div className={`w-full h-full md:flex-grow transition-opacity duration-1000 relative z-10 ${isServerActive ? 'opacity-100' : 'opacity-20 pointer-events-none blur-sm'}`}>
           <ErrorBoundary fallbackLabel="Map">
             <MapUI />
-          </ErrorBoundary>
+          </Sentry.ErrorBoundary>
 
           {/* Help Button overlaid on map */}
           <button

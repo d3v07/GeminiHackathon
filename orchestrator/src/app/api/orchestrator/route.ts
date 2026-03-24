@@ -1,38 +1,133 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
-import { GoogleGenAI } from '@google/genai';
-import { LanguageServiceClient } from '@google-cloud/language';
-import { PredictionServiceClient } from '@google-cloud/aiplatform';
 import { OrchestratorSchema } from '@/lib/schemas';
 
-// Init AI Clients
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' });
-const nlp = new LanguageServiceClient();
-const vertex = new PredictionServiceClient({
-    apiEndpoint: 'us-central1-aiplatform.googleapis.com'
-});
+type AiClient = {
+    models: {
+        generateContent: (input: {
+            model: string;
+            contents: Array<{ role: string; parts: Array<{ text: string }> }> | string;
+        }) => Promise<{ text?: string }>;
+    };
+};
+
+type NlpClient = {
+    analyzeSentiment: (input: {
+        document: { content: string; type: 'PLAIN_TEXT' };
+    }) => Promise<Array<{ documentSentiment?: { score?: number | null } }>>;
+};
+
+type VertexClient = {
+    predict: (input: {
+        endpoint: string;
+        instances: Array<unknown>;
+    }) => Promise<Array<{ predictions?: unknown[] }>>;
+};
+
+let aiClientPromise: Promise<AiClient> | null = null;
+let nlpClientPromise: Promise<NlpClient> | null = null;
+let vertexClientPromise: Promise<VertexClient> | null = null;
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 const LOCATION = 'us-central1';
 
-const GEMINI_FLASH = 'gemini-2.5-flash-preview-05-20';
 const GEMINI_PRO = 'gemini-2.5-pro-preview-05-06';
 const PUBLISHER = 'google';
 const MODEL = 'text-embedding-004';
+
+async function getAiClient() {
+    if (!aiClientPromise) {
+        aiClientPromise = import('@google/genai').then(({ GoogleGenAI }) => (
+            new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' }) as AiClient
+        ));
+    }
+
+    return aiClientPromise;
+}
+
+async function getNlpClient() {
+    if (!nlpClientPromise) {
+        nlpClientPromise = import('@google-cloud/language').then(({ LanguageServiceClient }) => (
+            new LanguageServiceClient() as NlpClient
+        ));
+    }
+
+    return nlpClientPromise;
+}
+
+async function getVertexClient() {
+    if (!vertexClientPromise) {
+        vertexClientPromise = import('@google-cloud/aiplatform').then(({ PredictionServiceClient }) => (
+            new PredictionServiceClient({
+            apiEndpoint: 'us-central1-aiplatform.googleapis.com'
+            }) as VertexClient
+        ));
+    }
+
+    return vertexClientPromise;
+}
+
+type AgentMemoryEntry = {
+    parts?: Array<{ text?: string }>;
+};
+
+type AgentRecord = {
+    lat?: number | string;
+    lng?: number | string;
+    isInteracting?: boolean;
+    memoryContext?: string;
+    defaultTask?: string;
+    role?: string;
+    sentimentScore?: number;
+    [key: string]: unknown;
+};
+
+type VertexPrediction = {
+    structValue?: {
+        fields?: {
+            embeddings?: {
+                structValue?: {
+                    fields?: {
+                        values?: {
+                            listValue?: {
+                                values?: Array<{ numberValue?: number | null }>;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+};
+
+function parseMemoryHistory(rawMemory: unknown): AgentMemoryEntry[] {
+    if (typeof rawMemory !== 'string' || !rawMemory) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(rawMemory) as unknown;
+        return Array.isArray(parsed) ? (parsed as AgentMemoryEntry[]) : [];
+    } catch {
+        return [];
+    }
+}
 
 // Helper for Vertex AI Embeddings
 async function getEmbedding(text: string) {
     if (!text) return [];
     try {
         const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/${PUBLISHER}/models/${MODEL}`;
-        const [response] = await vertex.predict({
+        const vertexClient = await getVertexClient();
+        const [response] = await vertexClient.predict({
             endpoint,
             instances: [{ structValue: { fields: { content: { stringValue: text } } } }],
         });
-        const embeddings = response.predictions?.[0]?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
-        return embeddings?.map((v: any) => v.numberValue) || [];
-    } catch (e) {
-        console.warn("Vertex Embedding failed:", e);
+        const firstPrediction = response.predictions?.[0] as VertexPrediction | undefined;
+        const embeddings = firstPrediction?.structValue?.fields?.embeddings?.structValue?.fields?.values?.listValue?.values;
+        return embeddings?.map((value) => value.numberValue ?? 0) ?? [];
+    } catch (error) {
+        console.warn('Vertex Embedding failed:', error);
         return [];
     }
 }
@@ -52,16 +147,15 @@ function cosineSimilarity(vecA: number[], vecB: number[]) {
 
 // Haversine formula to calculate distance between two coordinates in meters
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
-    var R = 6371000; // Radius of the earth in m
-    var dLat = deg2rad(lat2 - lat1);
-    var dLon = deg2rad(lon2 - lon1);
-    var a =
+    const radius = 6371000;
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    var d = R * c; // Distance in m
-    return d;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return radius * c;
 }
 
 function deg2rad(deg: number) {
@@ -113,30 +207,35 @@ export async function POST(request: Request) {
 
         // 2. Proximity calculation logic
         const snapshot = await agentsRef.get();
-        let collisionDetected = false;
-        let collidingAgentId = null;
-        let collidingAgentData: any = null;
+        let collidingAgent: { id: string; data: AgentRecord } | null = null;
 
-        snapshot.forEach(doc => {
-            const otherAgent = doc.data();
+        for (const doc of snapshot.docs) {
+            const otherAgent = doc.data() as AgentRecord;
             const otherAgentId = doc.id;
 
-            if (otherAgentId === agentId) return;
+            if (otherAgentId === agentId) continue;
 
-            const distance = getDistanceFromLatLonInM(lat, lng, otherAgent.lat, otherAgent.lng);
+            const otherLat = typeof otherAgent.lat === 'number' ? otherAgent.lat : Number(otherAgent.lat);
+            const otherLng = typeof otherAgent.lng === 'number' ? otherAgent.lng : Number(otherAgent.lng);
+            if (Number.isNaN(otherLat) || Number.isNaN(otherLng)) continue;
+
+            const distance = getDistanceFromLatLonInM(lat, lng, otherLat, otherLng);
 
             if (distance < INTERACTION_RADIUS_METERS && !otherAgent.isInteracting) {
-                collisionDetected = true;
-                collidingAgentId = otherAgentId;
-                collidingAgentData = otherAgent;
+                collidingAgent = {
+                    id: otherAgentId,
+                    data: otherAgent,
+                };
+                break;
             }
-        });
+        }
 
-        if (collisionDetected && collidingAgentId && collidingAgentData) {
+        if (collidingAgent) {
             // Fetch fresh doc for A
             const agentADoc = await agentsRef.doc(agentId).get();
-            const agentAData = agentADoc.data() || {};
-            const agentBData = collidingAgentData;
+            const agentAData = (agentADoc.data() as AgentRecord | undefined) || {};
+            const collidingAgentId = collidingAgent.id;
+            const agentBData = collidingAgent.data;
 
             // Mark both as interacting
             await agentsRef.doc(agentId).update({ isInteracting: true, interactingWith: collidingAgentId });
@@ -145,9 +244,8 @@ export async function POST(request: Request) {
             // Fourth task: Vertex AI Embeddings for Encounter Context
             let sharedContext = "";
             try {
-                // Parse history safely
-                const historyA = JSON.parse(agentAData.memoryContext || '[]');
-                const historyB = JSON.parse(agentBData.memoryContext || '[]');
+                const historyA = parseMemoryHistory(agentAData.memoryContext);
+                const historyB = parseMemoryHistory(agentBData.memoryContext);
 
                 let bestSimilarity = -1;
                 let bestPair: { textA: string, textB: string } | null = null;
@@ -175,8 +273,8 @@ export async function POST(request: Request) {
                 if (bestSimilarity > 0.6 && bestPair) {
                     sharedContext = `Agent A's related memory: "${bestPair.textA.substring(0, 100)}". Agent B's related memory: "${bestPair.textB.substring(0, 100)}".`;
                 }
-            } catch (e) {
-                console.warn("Error during Vertex embeddings", e);
+            } catch (error) {
+                console.warn('Error during Vertex embeddings', error);
             }
 
             const prompt = `
@@ -201,6 +299,7 @@ export async function POST(request: Request) {
             // Call Gemini 3 Flash directly
             let transcript = "Two agents nod silently as they pass.";
             try {
+                const ai = await getAiClient();
                 const geminiResponse = await ai.models.generateContent({
                     model: GEMINI_PRO,
                     contents: [{ role: 'user', parts: [{ text: prompt }] }]
@@ -208,19 +307,20 @@ export async function POST(request: Request) {
                 if (geminiResponse.text) {
                     transcript = geminiResponse.text;
                 }
-            } catch (e) {
-                console.error("Gemini Flash dialogue error", e);
+            } catch (error) {
+                console.error('Gemini dialogue error', error);
             }
 
             // Cloud Natural Language sentiment analysis
             let sentimentScore = 0;
             try {
-                const [sentimentResult] = await nlp.analyzeSentiment({
+                const nlpClient = await getNlpClient();
+                const [sentimentResult] = await nlpClient.analyzeSentiment({
                     document: { content: transcript, type: 'PLAIN_TEXT' }
                 });
                 sentimentScore = sentimentResult.documentSentiment?.score || 0;
-            } catch (e) {
-                console.error("Sentiment analysis error", e);
+            } catch (error) {
+                console.error('Sentiment analysis error', error);
             }
 
             // Write to encounters

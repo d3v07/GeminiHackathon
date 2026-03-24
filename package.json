@@ -9,7 +9,9 @@
     "dev:down": "docker compose down",
     "worker": "node worker.js",
     "spawn": "node spawn-agents.js",
-    "streamer": "node scripts/bigquery-streamer.js"
+    "streamer": "node scripts/bigquery-streamer.js",
+    "seed:s6": "node scripts/seed-sprint6-fixtures.js",
+    "smoke:s6": "node scripts/smoke-sprint6-apis.js"
   },
   "repository": {
     "type": "git",
@@ -25,6 +27,7 @@
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.0",
     "@google-cloud/pubsub": "^4.9.0",
+    "@google-cloud/secret-manager": "^6.1.1",
     "@google-cloud/vertexai": "^1.10.0",
     "@google/genai": "^1.43.0",
     "@langchain/core": "^1.1.30",
