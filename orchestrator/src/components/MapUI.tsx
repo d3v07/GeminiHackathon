@@ -79,8 +79,6 @@ export default function MapUI() {
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [commMessage, setCommMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const { user } = useUser();
-    const { success, error: toastError } = useToast();
     
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -104,6 +102,7 @@ export default function MapUI() {
         const handleJump = (e: any) => {
             if (e.detail?.lat && e.detail?.lng) {
                 setMapCenter({ lat: e.detail.lat, lng: e.detail.lng });
+                // If in social graph, switch back to map view
                 setShowSocialGraph(false);
                 setShowExploreMode(false);
             }
@@ -173,12 +172,14 @@ export default function MapUI() {
 
         fetchDetails();
     }, [selectedAgent?.id]);
+
     // TTS Auto-play logic
     const prevDialogRef = useRef<string | null>(null);
     useEffect(() => {
         if (selectedAgent && selectedAgent.lastEncounterDialogue !== prevDialogRef.current) {
             prevDialogRef.current = selectedAgent.lastEncounterDialogue;
             if (selectedAgent.lastEncounterDialogue && prevDialogRef.current) {
+                // Pass agent role as voice mapping hint the backend might use
                 speak(selectedAgent.lastEncounterDialogue, selectedAgent.id, selectedAgent.role);
             }
         }

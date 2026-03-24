@@ -26,7 +26,16 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 // Initialize Vertex AI
-const vertexAI = new VertexAI({ project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, location: 'us-central1' });
+const vertexAI = new VertexAI({ 
+    project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, 
+    location: 'us-central1',
+    googleAuthOptions: {
+        credentials: {
+            client_email: process.env.FIREBASE_CLIENT_EMAIL,
+            private_key: privateKey.replace(/\\n/g, '\n')
+        }
+    }
+});
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Budget guard: track per-agent cumulative cost
@@ -187,9 +196,63 @@ async function executeToolCall(name, args) {
 }
 
 async function generateGeminiContent(messages, mcpTools) {
+    const modelName = selectModel({ taskType: 'tool_calling' });
     try {
+        const generativeModel = vertexAI.getGenerativeModel({
+            model: modelName,
+            // Enable Google Search Grounding (Task K5)
+            tools: [{ googleSearchRetrieval: {} }]
+        });
+
+        // Convert messages to Vertex AI format
+        const responseResult = await generativeModel.generateContent({
+            contents: messages,
+            tools: [{ functionDeclarations: mcpTools }]
+        });
+
+        const response = responseResult.response;
+
+        let parsedResponse = {
+            text: response.candidates?.[0]?.content?.parts?.[0]?.text || "",
+            functionCalls: [],
+            candidateContent: response.candidates?.[0]?.content
+        };
+
+        const candidateParts = response.candidates?.[0]?.content?.parts || [];
+        for (const part of candidateParts) {
+            if (part.functionCall) {
+                parsedResponse.functionCalls.push({
+                    name: part.functionCall.name,
+                    args: part.functionCall.args
+                });
+            }
+            if (part.text) {
+                parsedResponse.text = part.text;
+            }
+        }
+
+        const usage = response.usageMetadata;
+        if (usage) {
+            geminiCalls.inc({ agent_id: 'unknown', model: modelName });
+            geminiTokens.inc({ agent_id: 'unknown', model: modelName, direction: 'input' }, usage.promptTokenCount || 0);
+            geminiTokens.inc({ agent_id: 'unknown', model: modelName, direction: 'output' }, usage.candidatesTokenCount || 0);
+            const cost = calculateCost(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
+            trackCost('unknown', cost.totalCost);
+            logger.info({ 
+                model: modelName, 
+                promptTokens: usage.promptTokenCount, 
+                candidatesTokens: usage.candidatesTokenCount, 
+                totalCost: cost.totalCost,
+                groundingMetadata: !!response.candidates?.[0]?.groundingMetadata 
+            }, 'Vertex AI grounded usage');
+        }
+
+        return parsedResponse;
+    } catch (e) {
+        logger.warn({ err: e.message }, 'Vertex AI failed, falling back to standard Gemini');
+        // Fallback to standard @google/genai
         const response = await ai.models.generateContent({
-            model: selectModel({ taskType: 'tool_calling' }),
+            model: modelName,
             contents: messages,
             config: {
                 tools: [{ functionDeclarations: mcpTools }]
@@ -217,19 +280,15 @@ async function generateGeminiContent(messages, mcpTools) {
 
         const usage = response.usageMetadata;
         if (usage) {
-            const model = selectModel({ taskType: 'tool_calling' });
-            geminiCalls.inc({ agent_id: 'unknown', model });
-            geminiTokens.inc({ agent_id: 'unknown', model, direction: 'input' }, usage.promptTokenCount || 0);
-            geminiTokens.inc({ agent_id: 'unknown', model, direction: 'output' }, usage.candidatesTokenCount || 0);
-            const cost = calculateCost(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
+            geminiCalls.inc({ agent_id: 'unknown', model: modelName });
+            geminiTokens.inc({ agent_id: 'unknown', model: modelName, direction: 'input' }, usage.promptTokenCount || 0);
+            geminiTokens.inc({ agent_id: 'unknown', model: modelName, direction: 'output' }, usage.candidatesTokenCount || 0);
+            const cost = calculateCost(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
             trackCost('unknown', cost.totalCost);
-            logger.info({ model, promptTokens: usage.promptTokenCount, candidatesTokens: usage.candidatesTokenCount, totalCost: cost.totalCost }, 'Gemini API usage');
+            logger.info({ model: modelName, promptTokens: usage.promptTokenCount, candidatesTokens: usage.candidatesTokenCount, totalCost: cost.totalCost }, 'Gemini API usage (fallback)');
         }
 
         return parsedResponse;
-    } catch (e) {
-        logger.error({ err: e }, 'Gemini AI error');
-        throw e;
     }
 }
 
@@ -305,25 +364,32 @@ Write a short, immersive dialogue between them, exchanging knowledge or reacting
 `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: selectModel({ taskType: 'encounter' }),
-            contents: { role: 'user', parts: [{ text: collisionPrompt }] },
-            config: {
-                tools: [{ googleSearch: {} }]
-            }
+        const modelName = selectModel({ taskType: 'encounter' });
+        const generativeModel = vertexAI.getGenerativeModel({
+            model: modelName,
+            tools: [{ googleSearchRetrieval: {} }]
         });
 
-        const textResponse = response.text || "";
+        const responseResult = await generativeModel.generateContent({
+            contents: [{ role: 'user', parts: [{ text: collisionPrompt }] }]
+        });
+        
+        const response = responseResult.response;
+        const textResponse = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         const usage = response.usageMetadata;
         if (usage) {
-            const model = selectModel({ taskType: 'encounter' });
-            geminiCalls.inc({ agent_id: 'encounter', model });
-            geminiTokens.inc({ agent_id: 'encounter', model, direction: 'input' }, usage.promptTokenCount || 0);
-            geminiTokens.inc({ agent_id: 'encounter', model, direction: 'output' }, usage.candidatesTokenCount || 0);
-            const cost = calculateCost(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
+            geminiCalls.inc({ agent_id: 'encounter', model: modelName });
+            geminiTokens.inc({ agent_id: 'encounter', model: modelName, direction: 'input' }, usage.promptTokenCount || 0);
+            geminiTokens.inc({ agent_id: 'encounter', model: modelName, direction: 'output' }, usage.candidatesTokenCount || 0);
+            const cost = calculateCost(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0);
             trackCost('encounter', cost.totalCost);
-            logger.info({ model, promptTokens: usage.promptTokenCount, candidatesTokens: usage.candidatesTokenCount, totalCost: cost.totalCost }, 'Encounter Gemini API usage');
+            logger.info({ 
+                model: modelName, 
+                promptTokens: usage.promptTokenCount, 
+                candidatesTokens: usage.candidatesTokenCount, 
+                totalCost: cost.totalCost 
+            }, 'Encounter Vertex AI usage');
         }
 
         logger.info({ dialogueLength: textResponse.length }, 'Multi-agent dialogue generated');

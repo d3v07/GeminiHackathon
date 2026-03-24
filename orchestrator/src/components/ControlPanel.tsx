@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSimulation } from '@/lib/SimulationContext';
 import EncounterReplay from './EncounterReplay';
-import HealthDashboard from './HealthDashboard';
 
 interface Encounter {
     id: string;

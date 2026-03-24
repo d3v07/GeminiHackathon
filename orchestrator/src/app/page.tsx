@@ -90,7 +90,7 @@ export default function Home() {
         we simulate the agent's logic pausing until restoration, perfectly demoing durability. 
       */}
         <div className={`w-full h-full md:flex-grow transition-opacity duration-1000 relative z-10 ${isServerActive ? 'opacity-100' : 'opacity-20 pointer-events-none blur-sm'}`}>
-          <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorBoundary fallbackLabel="Map" errorOverride={error as Error} />}>
+          <ErrorBoundary fallbackLabel="Map">
             <MapUI />
           </Sentry.ErrorBoundary>
 
@@ -118,12 +118,12 @@ export default function Home() {
           </div>
           
           <div className="flex-1 mt-12 md:mt-0 flex flex-col overflow-hidden bg-[#030406]">
-            <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorBoundary fallbackLabel="Control Panel" errorOverride={error as Error} />}>
+            <ErrorBoundary fallbackLabel="Control Panel">
               <ControlPanel
                 onSimulateKill={() => setIsServerActive(false)}
                 onRestart={() => setIsServerActive(true)}
               />
-            </Sentry.ErrorBoundary>
+            </ErrorBoundary>
 
             <div className="p-3 md:p-6 bg-gray-800 border-t border-gray-700 font-mono text-[10px] md:text-sm text-gray-400 flex justify-between items-center gap-2 z-20 relative">
               <div className="flex items-center gap-2">Status: <span className={isServerActive ? "text-green-400 font-bold" : "text-red-500 font-bold"}>{isServerActive ? "ONLINE" : "OFFLINE"}</span></div>
