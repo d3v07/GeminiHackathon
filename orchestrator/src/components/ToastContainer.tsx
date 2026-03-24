@@ -1,11 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type ToastType = 'success' | 'error' | 'info';
 
 interface Toast {
-  id: number;
+  id: string;
   message: string;
   type: ToastType;
 }
@@ -23,63 +23,43 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (message: string, type: ToastType) => {
-    const id = Date.now();
+    const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
 
-    // Auto-remove after 5s
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
+    }, 4000);
   };
 
-  const removeToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const methods = {
+    toast: {
+      success: (msg: string) => addToast(msg, 'success'),
+      error: (msg: string) => addToast(msg, 'error'),
+      info: (msg: string) => addToast(msg, 'info')
+    },
+    success: (msg: string) => addToast(msg, 'success'),
+    error: (msg: string) => addToast(msg, 'error'),
+    info: (msg: string) => addToast(msg, 'info')
   };
 
   return (
-    <ToastContext.Provider
-      value={{
-        toast: {
-          success: (msg) => addToast(msg, 'success'),
-          error: (msg) => addToast(msg, 'error'),
-          info: (msg) => addToast(msg, 'info'),
-        },
-        success: (msg) => addToast(msg, 'success'),
-        error: (msg) => addToast(msg, 'error'),
-        info: (msg) => addToast(msg, 'info'),
-      }}
-    >
+    <ToastContext.Provider value={methods}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none">
+      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-center justify-between min-w-[300px] p-4 rounded-lg shadow-2xl border text-sm font-mono animate-in slide-in-from-right-8 fade-in duration-300 ${
-              t.type === 'error'
-                ? 'bg-rose-950/90 border-rose-500/50 text-rose-200'
-                : t.type === 'success'
-                ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
-                : 'bg-indigo-950/90 border-indigo-500/50 text-indigo-200'
+            className={`px-4 py-3 rounded shadow-xl border backdrop-blur-md text-xs font-mono animate-in slide-in-from-right-8 duration-300 ${
+              t.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' :
+              t.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+              'bg-sky-500/10 border-sky-500/30 text-sky-400'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <span className="text-lg">
-                {t.type === 'error' ? '⚠️' : t.type === 'success' ? '✅' : 'ℹ️'}
-              </span>
-              <span>{t.message}</span>
-            </div>
-            {t.type === 'error' && (
-              <button
-                onClick={() => removeToast(t.id)}
-                className="ml-4 px-2 py-1 bg-rose-500/20 hover:bg-rose-500/40 rounded text-xs transition-colors"
-              >
-                Dismiss
-              </button>
-            )}
+            {t.message}
           </div>
         ))}
       </div>
