@@ -6,6 +6,20 @@ const admin = require('firebase-admin');
 const fs = require('fs');
 const logger = require('./lib/logger').child({ service: 'spawner' });
 
+let shutdownRequested = false;
+
+function requestShutdown(signal) {
+    if (shutdownRequested) {
+        return;
+    }
+
+    shutdownRequested = true;
+    logger.warn({ signal }, 'Graceful shutdown requested, finishing current step');
+}
+
+process.once('SIGTERM', () => requestShutdown('SIGTERM'));
+process.once('SIGINT', () => requestShutdown('SIGINT'));
+
 let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 try {
     const envLocal = fs.readFileSync('./orchestrator/.env.local', 'utf8');
@@ -25,8 +39,9 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 async function run() {
+    let connection;
     // Connect to the local Temporal cluster
-    const connection = await Connection.connect({ address: 'localhost:7233' });
+    connection = await Connection.connect({ address: process.env.TEMPORAL_ADDRESS || 'localhost:7233' });
 
     const client = new Client({
         connection,
@@ -137,6 +152,10 @@ async function run() {
     }
 
     for (const npc of agentsToSpawn) {
+        if (shutdownRequested) {
+            break;
+        }
+
         // Deterministic ID allows agents to recover state across engine cycles
         const npcId = `npc-${npc.role.replace(/\s+/g, '-').toLowerCase()}`;
 
@@ -186,10 +205,18 @@ async function run() {
 
     logger.info('Initializing Ripple Effect Swarms');
     for (const config of swarmConfigs) {
+        if (shutdownRequested) {
+            break;
+        }
+
         const parentNpc = npcsToSpawn.find(n => n.role === config.parentRole);
         if (!parentNpc) continue;
 
         for (let i = 1; i <= config.count; i++) {
+            if (shutdownRequested) {
+                break;
+            }
+
             const swarmRole = `${config.swarmRole} ${i}`;
             const swarmId = `npc-${swarmRole.replace(/\s+/g, '-').toLowerCase()}`;
 
@@ -237,6 +264,10 @@ async function run() {
     } // end else (demoMode skip)
 
     logger.info(demoMode ? 'Demo agents spawned' : 'Full deployment complete');
+
+    if (connection) {
+        await connection.close();
+    }
 }
 
 run().catch((err) => {

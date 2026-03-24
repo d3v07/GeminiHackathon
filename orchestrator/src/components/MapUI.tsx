@@ -6,7 +6,6 @@ import { useToast } from '@/components/ToastContainer';
 import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
 import { useSimulation } from '@/lib/SimulationContext';
 import dynamic from 'next/dynamic';
-import ExploreMode from './ExploreMode';
 import ShortcutModal from './ShortcutModal';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useAudioTTS } from '@/hooks/useAudioTTS';
@@ -14,6 +13,11 @@ import { useAudioTTS } from '@/hooks/useAudioTTS';
 const SocialGraph = dynamic(() => import('./SocialGraph'), {
     ssr: false,
     loading: () => <div className="w-full h-full flex items-center justify-center text-indigo-500 font-mono animate-pulse bg-black">Initializing WebGL Surface...</div>
+});
+
+const ExploreMode = dynamic(() => import('./ExploreMode'), {
+    ssr: false,
+    loading: () => <div className="w-full h-full flex items-center justify-center text-amber-500 font-mono animate-pulse bg-black">Calibrating Street View Matrix...</div>
 });
 
 const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
