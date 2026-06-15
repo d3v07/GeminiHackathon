@@ -35,13 +35,19 @@ function getIp(req: NextRequest): string {
     return req.headers.get('x-real-ip') || '127.0.0.1';
 }
 
-// Public routes: sign-in, sign-up, and API routes used by backend workers
-const isPublicRoute = createRouteMatcher([
+const publicRoutes = [
     '/sign-in(.*)',
     '/sign-up(.*)',
     '/api/orchestrator(.*)',  // Backend worker -> Firestore sync (no user session)
     '/api/state(.*)',         // Backend polling (no user session)
-]);
+];
+
+if (process.env.METROPOLIS_PUBLIC_DEMO === 'true') {
+    publicRoutes.push('/');
+}
+
+// Public routes: sign-in, sign-up, and API routes used by backend workers
+const isPublicRoute = createRouteMatcher(publicRoutes);
 
 export default clerkMiddleware(async (auth, request) => {
     // 1. Auth: protect non-public routes
