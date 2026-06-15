@@ -12,10 +12,23 @@ interface MetricsData {
 }
 
 export default function HealthDashboard() {
-  const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const publicDemo = process.env.NEXT_PUBLIC_METROPOLIS_PUBLIC_DEMO === 'true' || process.env.METROPOLIS_PUBLIC_DEMO === 'true';
+  const [metrics, setMetrics] = useState<MetricsData | null>(publicDemo ? {
+    status: 'healthy',
+    uptime: 24 * 60,
+    activeAgents: 5,
+    encountersToday: 3,
+    tokensUsed: 12840,
+    projectedCostUsd: 0.0432,
+  } : null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (publicDemo) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchMetrics = async () => {
       try {
         const res = await fetch('/api/metrics');
@@ -34,7 +47,7 @@ export default function HealthDashboard() {
     const interval = setInterval(fetchMetrics, 10000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [publicDemo]);
 
   if (isLoading && !metrics) {
     return (
