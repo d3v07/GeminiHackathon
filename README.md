@@ -12,7 +12,7 @@ Metropolis was built for the Gemini hackathon as an agentic city sandbox: agents
 - [Feature Map](#feature-map)
 - [Tech Stack](#tech-stack)
 - [Repository Map](#repository-map)
-- [Screenshots](#screenshots)
+- [Screenshot Gallery](#screenshot-gallery)
 - [Run Locally](#run-locally)
 - [Verification](#verification)
 - [Operational Notes](#operational-notes)
@@ -99,11 +99,13 @@ workflows.js     Workflow orchestration helpers
 docs/            Sprint and demo documentation
 ```
 
-## Screenshots
+## Screenshot Gallery
 
 Real local UI capture from this pass:
 
-![Metropolis local orchestrator UI](docs/screenshots/orchestrator-localhost-3120.png)
+| Image | Caption |
+|---|---|
+| ![Metropolis local orchestrator UI](docs/screenshots/orchestrator-localhost-3120.png) | Metropolis control surface as loaded on localhost:3120, showing map and health panels while Firestore-backed sections are in local development fallback mode. |
 
 The screenshot was captured from `npm run dev -- -p 3120` without local Firebase credentials. The shell rendered the control surface, while the map pane remained in the expected local-development loading state: `CONNECTING TO FIRESTORE...`.
 
