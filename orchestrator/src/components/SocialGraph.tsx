@@ -52,10 +52,30 @@ const toGraphLink = (edge: unknown): GraphLink | null => {
 
 export default function SocialGraph({ onNodeClick }: { onNodeClick?: (agentId: string) => void }) {
     const { agents, isLoading } = useSimulation();
+    const publicDemo = process.env.NEXT_PUBLIC_METROPOLIS_PUBLIC_DEMO === 'true' || process.env.METROPOLIS_PUBLIC_DEMO === 'true';
     const [graphData, setGraphData] = useState<GraphData<SocialNode, SocialLink>>({ nodes: [], links: [] });
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
     const containerRef = useRef<HTMLDivElement>(null);
     const graphRef = useRef<GraphMethods | undefined>(undefined);
+
+    const buildNodes = useCallback((): GraphNode[] => agents.map(a => ({
+        id: a.id,
+        name: a.id.split('_').pop(),
+        group: a.sentimentScore ? (a.sentimentScore > 0 ? 1 : a.sentimentScore < 0 ? 2 : 3) : 3,
+        val: a.isInteracting ? 8 : 5,
+        color: a.isInteracting ? '#10b981' : '#60a5fa',
+        role: a.role
+    })), [agents]);
+
+    const buildFallbackLinks = useCallback((): GraphLink[] => {
+        if (agents.length < 2) return [];
+        return agents.slice(1).map((agent, index) => ({
+            source: agents[index].id,
+            target: agent.id,
+            type: index % 3 === 0 ? 'friend' : index % 3 === 1 ? 'rival' : 'acquaintance',
+            weight: 2 + index
+        }));
+    }, [agents]);
 
     // Resize observer to keep graph responsive
     useEffect(() => {
@@ -75,37 +95,36 @@ export default function SocialGraph({ onNodeClick }: { onNodeClick?: (agentId: s
     // Fetch Relationships via S6 API and map to d3 nodes/links
     useEffect(() => {
         const fetchGraph = async () => {
+            const nodes = buildNodes();
+            const fallbackLinks = buildFallbackLinks();
+            if (publicDemo) {
+                setGraphData({ nodes, links: fallbackLinks });
+                return;
+            }
+
             try {
                 const res = await fetch('/api/social-graph');
                 if (res.ok) {
                     const data: unknown = await res.json();
-                    
-                    // The backend API should return { nodes: [...], edges: [...] } 
-                    // or we derive it from agents list directly if edges aren't strictly returned
-                    const nodes: GraphNode[] = agents.map(a => ({
-                        id: a.id,
-                        name: a.id.split('_').pop(), // e.g. "Agent_Alice" -> "Alice"
-                        group: a.sentimentScore ? (a.sentimentScore > 0 ? 1 : a.sentimentScore < 0 ? 2 : 3) : 3,
-                        val: 5,
-                        color: a.isInteracting ? '#10b981' : '#60a5fa',
-                        role: a.role
-                    }));
 
                     const links = isRecord(data) && Array.isArray(data.edges)
                         ? data.edges.map(toGraphLink).filter((link): link is GraphLink => link !== null)
                         : [];
 
-                    setGraphData({ nodes, links });
+                    setGraphData({ nodes, links: links.length > 0 ? links : fallbackLinks });
+                } else {
+                    setGraphData({ nodes, links: fallbackLinks });
                 }
             } catch (err) {
                 console.error("Failed to load social graph data:", err);
+                setGraphData({ nodes, links: fallbackLinks });
             }
         };
 
         if (agents.length > 0) {
             fetchGraph();
         }
-    }, [agents]);
+    }, [agents.length, buildFallbackLinks, buildNodes, publicDemo]);
 
     const handleNodeClick = useCallback(
         (node: RenderNode) => {

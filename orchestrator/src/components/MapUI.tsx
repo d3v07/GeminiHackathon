@@ -20,6 +20,7 @@ const ExploreMode = dynamic(() => import('./ExploreMode'), {
 });
 
 const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
+const NYC_BOUNDS = { north: 40.7485, south: 40.7000, west: -74.0210, east: -73.9820 };
 
 interface Agent {
     id: string;
@@ -65,6 +66,60 @@ const getAgentIcon = (role: string = '') => {
     if (r.includes('performer')) return '⭐';
     return '🤖';
 };
+
+const getMoodColor = (score: number = 0) => {
+    if (score > 0.3) return 'bg-emerald-500';
+    if (score < -0.3) return 'bg-rose-500';
+    return 'bg-sky-500';
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const DemoMapSurface = ({ agents, onSelect }: { agents: Agent[]; onSelect: (agent: Agent) => void }) => (
+    <div className="relative w-full h-full overflow-hidden bg-[#061015]">
+        <div className="absolute inset-0 opacity-80" style={{
+            backgroundImage: 'linear-gradient(rgba(16,185,129,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(14,165,233,0.12) 1px, transparent 1px)',
+            backgroundSize: '56px 56px'
+        }} />
+        <div className="absolute inset-0" style={{
+            background:
+                'radial-gradient(circle at 62% 22%, rgba(14,165,233,0.18), transparent 24%), radial-gradient(circle at 35% 68%, rgba(16,185,129,0.14), transparent 26%), linear-gradient(135deg, rgba(5,10,15,0.1), rgba(5,7,10,0.95))'
+        }} />
+        <div className="absolute left-[12%] top-0 h-full w-px bg-cyan-400/20 rotate-[28deg]" />
+        <div className="absolute left-[28%] top-0 h-full w-px bg-cyan-400/20 rotate-[28deg]" />
+        <div className="absolute left-[44%] top-0 h-full w-px bg-cyan-400/20 rotate-[28deg]" />
+        <div className="absolute left-[60%] top-0 h-full w-px bg-cyan-400/20 rotate-[28deg]" />
+        <div className="absolute left-[76%] top-0 h-full w-px bg-cyan-400/20 rotate-[28deg]" />
+        <div className="absolute left-[8%] right-[8%] top-[28%] h-2 rounded-full bg-amber-400/30 shadow-[0_0_30px_rgba(251,191,36,0.16)] rotate-[-10deg]" />
+        <div className="absolute left-[18%] right-[4%] top-[58%] h-2 rounded-full bg-sky-400/25 shadow-[0_0_30px_rgba(56,189,248,0.14)] rotate-[6deg]" />
+        <div className="absolute bottom-6 left-6 z-10 rounded-lg border border-emerald-500/30 bg-black/70 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-300 shadow-2xl">
+            Offline NYC grid · public demo mode
+        </div>
+        <div className="absolute top-24 left-10 z-10 rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[9px] uppercase tracking-widest text-gray-400">Hudson River</div>
+        <div className="absolute top-32 right-10 z-10 rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[9px] uppercase tracking-widest text-gray-400">East River</div>
+        {agents.map((agent) => {
+            const left = clamp(((Number(agent.lng) - NYC_BOUNDS.west) / (NYC_BOUNDS.east - NYC_BOUNDS.west)) * 100, 7, 93);
+            const top = clamp(((NYC_BOUNDS.north - Number(agent.lat)) / (NYC_BOUNDS.north - NYC_BOUNDS.south)) * 100, 8, 88);
+            return (
+                <button
+                    key={agent.id}
+                    type="button"
+                    onClick={() => onSelect(agent)}
+                    className="group absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                    style={{ left: `${left}%`, top: `${top}%` }}
+                >
+                    <span className={`absolute -inset-5 rounded-full blur-xl opacity-60 ${agent.isInteracting ? 'bg-rose-500' : getMoodColor(agent.sentimentScore)}`}></span>
+                    <span className={`relative flex h-12 w-12 items-center justify-center rounded-full border-2 bg-black/80 text-xl shadow-[0_0_30px_rgba(255,255,255,0.18)] ${agent.isInteracting ? 'border-rose-300' : 'border-white/70'}`}>
+                        {getAgentIcon(agent.role)}
+                    </span>
+                    <span className="absolute left-1/2 top-14 hidden -translate-x-1/2 whitespace-nowrap rounded border border-gray-700 bg-black/90 px-3 py-1.5 text-[9px] font-mono uppercase tracking-widest text-white group-hover:block">
+                        {agent.role}
+                    </span>
+                </button>
+            );
+        })}
+    </div>
+);
 
 const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
     const apiIsLoaded = useApiIsLoaded();
@@ -121,6 +176,9 @@ export default function MapUI() {
     // Audio TTS config
     const [audioVolume, setAudioVolume] = useState(0.8);
     const { speak, currentSpeakerId } = useAudioTTS({ volume: audioVolume });
+    const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+    const hasMapsKey = mapsKey.trim().length > 0 && mapsKey !== 'build';
+    const publicDemo = process.env.NEXT_PUBLIC_METROPOLIS_PUBLIC_DEMO === 'true' || process.env.METROPOLIS_PUBLIC_DEMO === 'true';
 
     // Controlled Map State
     const [mapCenter, setMapCenter] = useState(NYC_CENTER);
@@ -181,6 +239,23 @@ export default function MapUI() {
 
     useEffect(() => {
         if (!selectedAgent) return;
+        if (publicDemo) {
+            setDetailedAgent({
+                ...selectedAgent,
+                relationships: [
+                    { target: 'agent_dumpling_owner', type: 'friend' },
+                    { target: 'agent_brooklyn_ghost', type: 'acquaintance' }
+                ],
+                memorySnippets: [
+                    'Markets remember panic; kitchens remember pressure.',
+                    'The city keeps changing its evidence.',
+                    'A public square is a database with weather.'
+                ],
+                recentEncounters: selectedAgent.lastEncounterDialogue ? [{ transcript: selectedAgent.lastEncounterDialogue }] : []
+            });
+            setIsDetailLoading(false);
+            return;
+        }
         
         // Fetch deep details
         const fetchDetails = async () => {
@@ -199,11 +274,12 @@ export default function MapUI() {
         };
 
         fetchDetails();
-    }, [selectedAgent?.id]);
+    }, [publicDemo, selectedAgent]);
 
     // TTS Auto-play logic
     const prevDialogRef = useRef<string | null>(null);
     useEffect(() => {
+        if (publicDemo) return;
         const dialogue = selectedAgent?.lastEncounterDialogue ?? null;
         if (selectedAgent && dialogue !== prevDialogRef.current) {
             prevDialogRef.current = dialogue;
@@ -212,13 +288,7 @@ export default function MapUI() {
                 speak(dialogue, selectedAgent.id, selectedAgent.role);
             }
         }
-    }, [selectedAgent?.lastEncounterDialogue, selectedAgent?.id, selectedAgent?.role, speak]);
-
-    const getMoodColor = (score: number = 0) => {
-        if (score > 0.3) return 'bg-emerald-500'; // Happy
-        if (score < -0.3) return 'bg-rose-500';    // Stressed/Sad
-        return 'bg-sky-500';                      // Neutral
-    };
+    }, [publicDemo, selectedAgent?.lastEncounterDialogue, selectedAgent?.id, selectedAgent?.role, speak]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -259,8 +329,7 @@ export default function MapUI() {
         return true;
     });
 
-    return (
-        <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
+    const content = (
             <div className="w-full h-full relative border-r border-gray-800 bg-[#05070a] overflow-hidden flex">
                 {/* Loading Overlay */}
                 {isLoading && (
@@ -404,7 +473,7 @@ export default function MapUI() {
                 </div>
 
                 <div className="flex-1 relative">
-                    {showExploreMode ? (
+                    {showExploreMode && hasMapsKey ? (
                         <div className="w-full h-full bg-black">
                             <ExploreMode 
                                 initialLat={selectedAgent ? Number(selectedAgent.lat) : NYC_CENTER.lat}
@@ -423,7 +492,7 @@ export default function MapUI() {
                                 if (agent) setSelectedAgent(agent);
                             }} />
                         </div>
-                    ) : (
+                    ) : hasMapsKey ? (
                         <Map
                             defaultZoom={14}
                             center={mapCenter}
@@ -466,6 +535,8 @@ export default function MapUI() {
                                 </AdvancedMarker>
                             ))}
                         </Map>
+                    ) : (
+                        <DemoMapSurface agents={filteredAgents} onSelect={setSelectedAgent} />
                     )}
                 </div>
 
@@ -492,7 +563,17 @@ export default function MapUI() {
 
                         {/* Live Street View Panorama Preview */}
                         <div className="mb-8 rounded-xl overflow-hidden border border-gray-800/80 aspect-[16/10] bg-[#050505] group relative shadow-inner">
-                            <InteractiveStreetView lat={Number(selectedAgent.lat)} lng={Number(selectedAgent.lng)} />
+                            {hasMapsKey ? (
+                                <InteractiveStreetView lat={Number(selectedAgent.lat)} lng={Number(selectedAgent.lng)} />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-gray-950 via-emerald-950/20 to-black flex items-center justify-center">
+                                    <div className="text-center font-mono uppercase tracking-[0.2em]">
+                                        <div className="text-[10px] text-emerald-400 mb-2">Location Snapshot</div>
+                                        <div className="text-[20px] text-white">{getAgentIcon(selectedAgent.role)}</div>
+                                        <div className="text-[9px] text-gray-500 mt-2">{selectedAgent.role}</div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="absolute inset-0 border border-white/5 rounded-xl pointer-events-none"></div>
                             <div className="absolute top-3 left-3 bg-black/80 backdrop-blur px-2.5 py-1.5 rounded border border-rose-500/30 text-[9px] font-mono text-white flex items-center gap-2 shadow-lg pointer-events-none">
@@ -665,6 +746,7 @@ export default function MapUI() {
                 
                 <ShortcutModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
             </div>
-        </APIProvider>
     );
+
+    return hasMapsKey ? <APIProvider apiKey={mapsKey}>{content}</APIProvider> : content;
 }

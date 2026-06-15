@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSimulation } from '@/lib/SimulationContext';
 
 interface ReplayLog {
     id: string;
@@ -11,22 +12,39 @@ interface ReplayLog {
 }
 
 export default function EncounterReplay({ onClose }: { onClose: () => void }) {
+    const { encounters } = useSimulation();
+    const publicDemo = process.env.NEXT_PUBLIC_METROPOLIS_PUBLIC_DEMO === 'true' || process.env.METROPOLIS_PUBLIC_DEMO === 'true';
     const [history, setHistory] = useState<ReplayLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     useEffect(() => {
+        const fallbackHistory = encounters.map((enc) => ({
+            id: enc.id,
+            participants: enc.participants,
+            timestamp: typeof enc.timestamp === 'string' ? enc.timestamp : new Date().toISOString(),
+            transcript: enc.transcript,
+            sentimentScore: enc.sentimentScore
+        }));
+
+        if (publicDemo) {
+            setHistory(fallbackHistory);
+            setLoading(false);
+            return;
+        }
+
         fetch('/api/encounters/history')
-            .then(res => res.json())
+            .then(res => res.ok ? res.json() : fallbackHistory)
             .then(data => {
-                setHistory(data);
+                setHistory(Array.isArray(data) && data.length > 0 ? data : fallbackHistory);
                 setLoading(false);
             })
             .catch(err => {
                 console.error("Failed to fetch encounter history", err);
+                setHistory(fallbackHistory);
                 setLoading(false);
             });
-    }, []);
+    }, [encounters, publicDemo]);
 
     const jumpTo = (lat?: number, lng?: number) => {
         if (!lat || !lng) return;

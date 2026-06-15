@@ -103,12 +103,13 @@ docs/            Sprint and demo documentation
 
 | Image | Caption |
 |---|---|
-| ![Metropolis orchestrator overview](docs/screenshots/metropolis-orchestrator-overview.png) | Main orchestrator surface with map canvas, telemetry sidebar, durable system logs, simulation controls, and live status rail. |
-| ![Metropolis user manual](docs/screenshots/metropolis-demo-manual.png) | Built-in demo manual explaining simulation behavior, agent grounding, semantic memory, and durability testing. |
-| ![Metropolis social graph mode](docs/screenshots/metropolis-social-graph-mode.png) | Social graph mode entry point from the map control bar for inspecting relationships between autonomous city agents. |
-| ![Metropolis spawn controls](docs/screenshots/metropolis-spawn-controls.png) | Simulation control dock with speed controls and NPC spawn form for adding new agents into the city runtime. |
+| ![Metropolis orchestrator overview](docs/screenshots/metropolis-orchestrator-overview.png) | Public demo mission-control surface with active agents, encounter stream, durable logs, telemetry cards, and simulation controls. |
+| ![Metropolis agent detail](docs/screenshots/metropolis-agent-detail.png) | Agent intelligence panel showing role, location snapshot, cognitive goal, sentiment, engine status, last interaction, and comm-link input. |
+| ![Metropolis social matrix](docs/screenshots/metropolis-social-matrix.png) | Social graph mode with live agent nodes and relationship edges for inspecting interactions outside the map view. |
+| ![Metropolis filter controls](docs/screenshots/metropolis-filter-controls.png) | Operator filter panel for searching agents, sentiment thresholds, and TTS volume while the simulation remains visible. |
+| ![Metropolis encounter replay](docs/screenshots/metropolis-encounter-replay.png) | Archived replay drawer showing prior encounters and transcripts alongside the active city-grid view. |
 
-These captures were taken from the local orchestrator with `METROPOLIS_PUBLIC_DEMO=true` so the UI can be documented without a Clerk session. Firestore-backed panels use the local `demo-project` fallback when cloud credentials are absent.
+These captures were taken from the local orchestrator with `METROPOLIS_PUBLIC_DEMO=true` and `NEXT_PUBLIC_METROPOLIS_PUBLIC_DEMO=true` so the UI can be documented without a Clerk session or cloud credentials. When a Google Maps key is absent, the public demo uses the offline NYC grid view shown above.
 
 ## Run Locally
 
