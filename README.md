@@ -106,6 +106,7 @@ Real local UI capture from this pass:
 | Image | Caption |
 |---|---|
 | ![Metropolis local orchestrator UI](docs/screenshots/orchestrator-localhost-3120.png) | Metropolis control surface as loaded on localhost:3120, showing map and health panels while Firestore-backed sections are in local development fallback mode. |
+| ![Metropolis local orchestrator right pane](docs/screenshots/orchestrator-localhost-3120-right-pane.png) | Right-side control and health diagnostics pane showing runtime state details during local simulator startup. |
 
 The screenshot was captured from `npm run dev -- -p 3120` without local Firebase credentials. The shell rendered the control surface, while the map pane remained in the expected local-development loading state: `CONNECTING TO FIRESTORE...`.
 
