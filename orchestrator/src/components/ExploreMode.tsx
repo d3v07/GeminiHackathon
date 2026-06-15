@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApiIsLoaded } from '@vis.gl/react-google-maps';
 
 interface Agent {
@@ -37,11 +37,16 @@ export default function ExploreMode({ initialLat, initialLng, agents, onAgentNea
     const panoRef = useRef<google.maps.StreetViewPanorama | null>(null);
     const markersRef = useRef<google.maps.Marker[]>([]);
     const agentsRef = useRef(agents);
+    const onAgentNearRef = useRef(onAgentNear);
 
     // Keep ref up to date
     useEffect(() => {
         agentsRef.current = agents;
     }, [agents]);
+
+    useEffect(() => {
+        onAgentNearRef.current = onAgentNear;
+    }, [onAgentNear]);
     
     // Focus the div on mount so WASD keys work for the panorama
     useEffect(() => {
@@ -77,7 +82,7 @@ export default function ExploreMode({ initialLat, initialLng, agents, onAgentNea
                 const dist = getDistance(currentLat, currentLng, agent.lat, agent.lng);
                 // If within 25 meters, trigger encounter interaction
                 if (dist < 25) {
-                    onAgentNear(agent);
+                    onAgentNearRef.current(agent);
                 }
             }
         });
@@ -88,7 +93,7 @@ export default function ExploreMode({ initialLat, initialLng, agents, onAgentNea
                 panoRef.current = null;
             }
         };
-    }, [apiIsLoaded]); // Run once on load
+    }, [apiIsLoaded, initialLat, initialLng]);
 
     // Update markers when agents change
     useEffect(() => {
@@ -103,7 +108,7 @@ export default function ExploreMode({ initialLat, initialLng, agents, onAgentNea
         agents.forEach(agent => {
             const marker = new window.google.maps.Marker({
                 position: { lat: agent.lat, lng: agent.lng },
-                map: panoRef.current as any, // Attach directly to panorama
+                map: panoRef.current,
                 title: agent.role || agent.id,
                 icon: {
                     path: window.google.maps.SymbolPath.CIRCLE,
@@ -116,7 +121,7 @@ export default function ExploreMode({ initialLat, initialLng, agents, onAgentNea
             });
             
             marker.addListener('click', () => {
-                onAgentNear(agent);
+                onAgentNearRef.current(agent);
             });
 
             markersRef.current.push(marker);

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
-import { VertexAI } from '@google-cloud/vertexai';
 import language from '@google-cloud/language';
 import { adminDb } from '@/lib/firebase-admin';
 import { InteractSchema } from '@/lib/schemas';
@@ -23,17 +22,7 @@ if (!geminiKey) {
 }
 
 // Initialize GCP Clients
-const ai = new GoogleGenAI({ apiKey: geminiKey });
-const vertexAI = new VertexAI({ 
-    project: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, 
-    location: 'us-central1',
-    googleAuthOptions: {
-        credentials: {
-            client_email: process.env.FIREBASE_CLIENT_EMAIL,
-            private_key: privateKey.replace(/\\n/g, '\n')
-        }
-    }
-});
+const ai = new GoogleGenAI({ apiKey: geminiKey || 'dummy_key_for_build' });
 const nlpClient = new language.LanguageServiceClient({
     credentials: {
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
@@ -41,6 +30,10 @@ const nlpClient = new language.LanguageServiceClient({
     },
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
 });
+
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 export async function POST(req: Request) {
     try {
@@ -96,8 +89,8 @@ export async function POST(req: Request) {
             
             aiReply = result.text || aiReply;
             console.log(`[Unified-GenAI] Grounded 2.0 success with ${aiReply.substring(0, 30)}...`);
-        } catch (vErr: any) {
-            console.warn(`[Unified-GenAI] Grounded 2.0 failed: ${vErr.message}. Trying 1.5 Flash...`);
+        } catch (vErr: unknown) {
+            console.warn(`[Unified-GenAI] Grounded 2.0 failed: ${getErrorMessage(vErr)}. Trying 1.5 Flash...`);
             try {
                 // Choice 2: Gemini 1.5 Flash Grounded (Higher Quota)
                 const flashClient = new GoogleGenAI({ 
@@ -115,8 +108,8 @@ export async function POST(req: Request) {
                 });
                 aiReply = result.text || aiReply;
                 console.log(`[Unified-GenAI] Grounded 1.5 success with ${aiReply.substring(0, 30)}...`);
-            } catch (pErr: any) {
-                console.warn(`[Unified-GenAI] Grounded 1.5 failed. Falling back to simple AI...`);
+            } catch (pErr: unknown) {
+                console.warn(`[Unified-GenAI] Grounded 1.5 failed: ${getErrorMessage(pErr)}. Falling back to simple AI...`);
                 try {
                     // Choice 3: Standard Gemini 1.5 Flash (No Grounding, High Quota)
                     const standardResult = await ai.models.generateContent({
@@ -124,8 +117,8 @@ export async function POST(req: Request) {
                         contents: [{ role: 'user', parts: [{ text: prompt }] }]
                     });
                     aiReply = standardResult.text || aiReply;
-                } catch (sErr: any) {
-                    console.error(`[Unified-GenAI] All fallbacks failed:`, sErr.message);
+                } catch (sErr: unknown) {
+                    console.error(`[Unified-GenAI] All fallbacks failed:`, getErrorMessage(sErr));
                     aiReply = "The Comm-Link is currently restricted. Check GCP API status.";
                 }
             }
@@ -152,8 +145,8 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true, aiReply, sentimentScore });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('API /interact error:', error);
-        return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error', message: getErrorMessage(error) }, { status: 500 });
     }
 }

@@ -29,7 +29,7 @@ if (!admin.apps.length) {
                 console.log('Firebase admin properly injected via local JSON key.');
             }
         }
-    } catch (err) {
+    } catch {
         console.warn('Failed to parse admin json key, falling back to ENV vars...');
     }
 

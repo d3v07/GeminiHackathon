@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useUser } from '@clerk/nextjs';
 import { useToast } from '@/components/ToastContainer';
-import { APIProvider, Map, AdvancedMarker, Pin, useApiIsLoaded } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useApiIsLoaded } from '@vis.gl/react-google-maps';
 import { useSimulation } from '@/lib/SimulationContext';
 import dynamic from 'next/dynamic';
 import ShortcutModal from './ShortcutModal';
@@ -29,6 +28,29 @@ interface Agent {
     isInteracting: boolean;
     sentimentScore?: number;
     role?: string;
+    defaultTask?: string;
+    lastEncounterDialogue?: string;
+    lastUpdated?: string;
+}
+
+interface AgentRelationship {
+    target: string;
+    type?: 'friend' | 'rival' | 'acquaintance' | string;
+}
+
+interface EncounterPreview {
+    transcript?: string;
+}
+
+interface DetailedAgent extends Agent {
+    relationships?: AgentRelationship[];
+    memorySnippets?: string[];
+    recentEncounters?: EncounterPreview[];
+}
+
+interface MapJumpDetail {
+    lat?: number;
+    lng?: number;
 }
 
 const getAgentIcon = (role: string = '') => {
@@ -78,8 +100,9 @@ const InteractiveStreetView = ({ lat, lng }: { lat: number, lng: number }) => {
 
 export default function MapUI() {
     const { agents, isLoading, error, connectionStatus } = useSimulation();
-    const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
-    const [detailedAgent, setDetailedAgent] = useState<any | null>(null);
+    const { success, error: toastError } = useToast();
+    const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+    const [detailedAgent, setDetailedAgent] = useState<DetailedAgent | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [commMessage, setCommMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -103,16 +126,17 @@ export default function MapUI() {
     const [mapCenter, setMapCenter] = useState(NYC_CENTER);
 
     useEffect(() => {
-        const handleJump = (e: any) => {
-            if (e.detail?.lat && e.detail?.lng) {
-                setMapCenter({ lat: e.detail.lat, lng: e.detail.lng });
+        const handleJump = (e: Event) => {
+            const { detail } = e as CustomEvent<MapJumpDetail>;
+            if (typeof detail?.lat === 'number' && typeof detail.lng === 'number') {
+                setMapCenter({ lat: detail.lat, lng: detail.lng });
                 // If in social graph, switch back to map view
                 setShowSocialGraph(false);
                 setShowExploreMode(false);
             }
         };
-        window.addEventListener('map-jump', handleJump as EventListener);
-        return () => window.removeEventListener('map-jump', handleJump as EventListener);
+        window.addEventListener('map-jump', handleJump);
+        return () => window.removeEventListener('map-jump', handleJump);
     }, []);
 
     // Global Actions
@@ -151,7 +175,7 @@ export default function MapUI() {
             setDetailedAgent(null);
             return;
         }
-        const updated = agents.find((a: any) => a.id === selectedAgent.id);
+        const updated = agents.find(a => a.id === selectedAgent.id);
         if (updated) setSelectedAgent(updated);
     }, [agents, selectedAgent?.id]);
 
@@ -164,7 +188,7 @@ export default function MapUI() {
             try {
                 const res = await fetch(`/api/agents/${selectedAgent.id}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = await res.json() as DetailedAgent;
                     setDetailedAgent(data);
                 }
             } catch (err) {
@@ -180,11 +204,12 @@ export default function MapUI() {
     // TTS Auto-play logic
     const prevDialogRef = useRef<string | null>(null);
     useEffect(() => {
-        if (selectedAgent && selectedAgent.lastEncounterDialogue !== prevDialogRef.current) {
-            prevDialogRef.current = selectedAgent.lastEncounterDialogue;
-            if (selectedAgent.lastEncounterDialogue && prevDialogRef.current) {
+        const dialogue = selectedAgent?.lastEncounterDialogue ?? null;
+        if (selectedAgent && dialogue !== prevDialogRef.current) {
+            prevDialogRef.current = dialogue;
+            if (dialogue) {
                 // Pass agent role as voice mapping hint the backend might use
-                speak(selectedAgent.lastEncounterDialogue, selectedAgent.id, selectedAgent.role);
+                speak(dialogue, selectedAgent.id, selectedAgent.role);
             }
         }
     }, [selectedAgent?.lastEncounterDialogue, selectedAgent?.id, selectedAgent?.role, speak]);
@@ -193,12 +218,6 @@ export default function MapUI() {
         if (score > 0.3) return 'bg-emerald-500'; // Happy
         if (score < -0.3) return 'bg-rose-500';    // Stressed/Sad
         return 'bg-sky-500';                      // Neutral
-    };
-
-    const getMoodPing = (score: number = 0) => {
-        if (score > 0.3) return 'bg-emerald-400';
-        if (score < -0.3) return 'bg-rose-400';
-        return 'bg-sky-400';
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -220,11 +239,11 @@ export default function MapUI() {
                 })
             });
             if (!res.ok) throw new Error(`API returned ${res.status}`);
-            const data = await res.json();
+            await res.json();
             success('Message transmitted to target proxy.');
-        } catch (e: any) {
+        } catch (e) {
             console.error('Error sending message:', e);
-            toastError(e.message || 'Transmission failed. Signal lost.');
+            toastError(e instanceof Error ? e.message : 'Transmission failed. Signal lost.');
         } finally {
             setIsSending(false);
         }
@@ -391,7 +410,10 @@ export default function MapUI() {
                                 initialLat={selectedAgent ? Number(selectedAgent.lat) : NYC_CENTER.lat}
                                 initialLng={selectedAgent ? Number(selectedAgent.lng) : NYC_CENTER.lng}
                                 agents={filteredAgents}
-                                onAgentNear={(agent) => setSelectedAgent(agent)}
+                                onAgentNear={(agent) => {
+                                    const activeAgent = agents.find(a => a.id === agent.id);
+                                    if (activeAgent) setSelectedAgent(activeAgent);
+                                }}
                             />
                         </div>
                     ) : showSocialGraph ? (
@@ -489,7 +511,7 @@ export default function MapUI() {
                                     Current Cognitive Goal
                                 </span>
                                 <div className="bg-gradient-to-br from-gray-900 to-black rounded-lg p-5 border border-gray-800 shadow-inner">
-                                    <p className="text-[13px] text-gray-300 italic leading-relaxed font-serif">"{selectedAgent.defaultTask || 'Awaiting instruction from orchestrator...'}"</p>
+                                    <p className="text-[13px] text-gray-300 italic leading-relaxed font-serif">&quot;{selectedAgent.defaultTask || 'Awaiting instruction from orchestrator...'}&quot;</p>
                                 </div>
                             </div>
 
@@ -499,7 +521,7 @@ export default function MapUI() {
                                     <div className="h-1.5 bg-gray-950 rounded-full overflow-hidden relative shadow-inner">
                                         <div
                                             className={`absolute left-0 top-0 h-full transition-all duration-1000 ${getMoodColor(selectedAgent.sentimentScore)}`}
-                                            style={{ width: `${Math.max(0, Math.min(100, (selectedAgent.sentimentScore + 1) * 50))}%` }}
+                                            style={{ width: `${Math.max(0, Math.min(100, ((selectedAgent.sentimentScore ?? 0) + 1) * 50))}%` }}
                                         ></div>
                                     </div>
                                     <div className="flex justify-between mt-2 font-mono text-[9px] text-gray-600">
@@ -530,7 +552,7 @@ export default function MapUI() {
                                         Last Interaction
                                     </span>
                                     <div className="bg-gradient-to-br from-sky-500/10 to-transparent border border-sky-500/20 rounded-lg p-5">
-                                        <p className="text-[12px] text-sky-100/90 font-mono italic leading-relaxed">"{selectedAgent.lastEncounterDialogue}"</p>
+                                        <p className="text-[12px] text-sky-100/90 font-mono italic leading-relaxed">&quot;{selectedAgent.lastEncounterDialogue}&quot;</p>
                                     </div>
                                 </div>
                             )}
@@ -552,7 +574,7 @@ export default function MapUI() {
                                             Social Graph Matrix
                                         </span>
                                         <div className="flex flex-wrap gap-2">
-                                            {detailedAgent.relationships.map((rel: any, i: number) => (
+                                            {detailedAgent.relationships.map((rel, i) => (
                                                 <div key={i} className={`border px-2 py-1 rounded text-[9px] font-mono shadow-sm ${rel.type === 'friend' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : rel.type === 'rival' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-gray-800/50 border-gray-700 text-gray-400'}`}>
                                                     {rel.target.substring(0, 12)}...
                                                     <span className="ml-1 uppercase opacity-60">[{rel.type}]</span>
@@ -586,11 +608,11 @@ export default function MapUI() {
                                         </span>
                                         <div className="flex flex-col gap-2 relative">
                                             <div className="absolute left-1 top-2 bottom-2 w-px bg-cyan-500/20"></div>
-                                            {detailedAgent.recentEncounters.map((enc: any, i: number) => (
+                                            {detailedAgent.recentEncounters.map((enc, i) => (
                                                 <div key={i} className="pl-6 relative">
                                                     <div className="absolute left-[3px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
                                                     <p className="text-[10px] text-gray-400 font-mono truncate hover:whitespace-normal cursor-pointer bg-black/40 hover:bg-black/60 rounded px-2 py-1 border border-transparent hover:border-cyan-500/30 transition-colors">
-                                                        "{enc.transcript?.substring(0, 50)}..."
+                                                        &quot;{enc.transcript?.substring(0, 50)}...&quot;
                                                     </p>
                                                 </div>
                                             ))}
@@ -605,7 +627,7 @@ export default function MapUI() {
                             <div className="bg-black/40 rounded border border-gray-900 p-3 grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-[8px] text-gray-600 uppercase tracking-widest">Last State Sync</span>
-                                    <span className="text-[10px] font-mono text-gray-400">{new Date(selectedAgent.lastUpdated).toLocaleTimeString()}</span>
+                                    <span className="text-[10px] font-mono text-gray-400">{new Date(selectedAgent.lastUpdated ?? Date.now()).toLocaleTimeString()}</span>
                                 </div>
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-[8px] text-gray-600 uppercase tracking-widest">Temporal Link</span>

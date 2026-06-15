@@ -58,7 +58,7 @@ export default clerkMiddleware(async (auth, request) => {
         if (limiter) {
             try {
                 const ip = getIp(request);
-                const { success, limit, remaining, reset } = await limiter.limit(`${ip}:${pathname}`);
+                const { success, limit, reset } = await limiter.limit(`${ip}:${pathname}`);
 
                 if (!success) {
                     return NextResponse.json(

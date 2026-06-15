@@ -12,14 +12,14 @@ interface Agent {
     defaultTask?: string;
     lastEncounterDialogue?: string;
     lastUpdated?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 interface Encounter {
     id: string;
     participants: string[];
     transcript: string;
-    timestamp: any;
+    timestamp: unknown;
     sentimentScore?: number;
 }
 
@@ -52,7 +52,7 @@ export function SimulationProvider({ children, enabled = true }: { children: Rea
 
     useEffect(() => {
         if (!enabled) {
-            setConnectionStatus('disconnected');
+            queueMicrotask(() => setConnectionStatus('disconnected'));
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
                 eventSourceRef.current = null;
@@ -61,7 +61,7 @@ export function SimulationProvider({ children, enabled = true }: { children: Rea
             return;
         }
 
-        setConnectionStatus('connecting');
+        queueMicrotask(() => setConnectionStatus('connecting'));
 
         const connectSSE = () => {
             const es = new EventSource('/api/agents/stream');
@@ -74,7 +74,7 @@ export function SimulationProvider({ children, enabled = true }: { children: Rea
 
             es.onmessage = (event) => {
                 try {
-                    const data = JSON.parse(event.data);
+                    const data: unknown = JSON.parse(event.data);
                     if (data && Array.isArray(data)) {
                         setAgents(data);
                         setIsLoading(false);
@@ -104,7 +104,8 @@ export function SimulationProvider({ children, enabled = true }: { children: Rea
             try {
                 const res = await fetch('/api/encounters/history?limit=50');
                 if (res.ok) {
-                    const data = await res.json();
+                    const data: unknown = await res.json();
+                    if (!Array.isArray(data)) return;
                     setEncounters(data);
                 }
             } catch (err) {

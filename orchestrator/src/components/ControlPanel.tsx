@@ -1,22 +1,31 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSimulation } from '@/lib/SimulationContext';
 import dynamic from 'next/dynamic';
 import HealthDashboard from './HealthDashboard';
+
+type SimulationAgent = ReturnType<typeof useSimulation>['agents'][number];
+
+function toDateInput(value: unknown): string | number | Date {
+    if (value instanceof Date || typeof value === 'string' || typeof value === 'number') {
+        return value;
+    }
+    if (
+        value &&
+        typeof value === 'object' &&
+        'toDate' in value &&
+        typeof (value as { toDate?: unknown }).toDate === 'function'
+    ) {
+        return (value as { toDate: () => Date }).toDate();
+    }
+    return Date.now();
+}
 
 const EncounterReplay = dynamic(() => import('./EncounterReplay'), {
     ssr: false,
     loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 text-sky-500 font-mono animate-pulse">Initializing Replay Matrix...</div>
 });
-
-interface Encounter {
-    id: string;
-    participants: string[];
-    transcript: string;
-    timestamp: any;
-    sentimentScore?: number;
-}
 
 export default function ControlPanel({
     onSimulateKill,
@@ -25,23 +34,16 @@ export default function ControlPanel({
     onSimulateKill: () => void;
     onRestart: () => void;
 }) {
-    const { agents, encounters, isLoading, connectionStatus } = useSimulation();
+    const { agents, encounters, connectionStatus } = useSimulation();
     const [logs, setLogs] = useState<string[]>([]);
     const [isServerDead, setIsServerDead] = useState(false);
     const [showReplay, setShowReplay] = useState(false);
-
-    // Stats calculations
-    const activeAgents = agents.length;
-    const totalEncounters = encounters.length;
-    const avgSentiment = agents.length > 0
-        ? agents.reduce((acc, curr) => acc + (curr.sentimentScore || 0), 0) / agents.length
-        : 0;
 
     const audioQueue = useRef<string[]>([]);
     const isPlayingAudio = useRef(false);
     const lastProcessedEncounter = useRef("");
 
-    const processAudioQueue = async () => {
+    const processAudioQueue = useCallback(() => {
         if (isPlayingAudio.current || audioQueue.current.length === 0) return;
 
         isPlayingAudio.current = true;
@@ -59,9 +61,9 @@ export default function ControlPanel({
                 processAudioQueue();
             });
         }
-    };
+    }, []);
 
-    const fetchAndQueueTTS = async (text: string, role: string) => {
+    const fetchAndQueueTTS = useCallback(async (text: string, role: string) => {
         try {
             const response = await fetch('/api/tts', {
                 method: 'POST',
@@ -76,7 +78,7 @@ export default function ControlPanel({
         } catch (e) {
             console.error('TTS fetch failed:', e);
         }
-    };
+    }, [processAudioQueue]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -87,7 +89,7 @@ export default function ControlPanel({
         return () => clearInterval(interval);
     }, [isServerDead]);
 
-    const prevAgentsRef = useRef<Record<string, any>>({});
+    const prevAgentsRef = useRef<Record<string, SimulationAgent>>({});
 
     // Derive diffs from SimulationContext instead of separate polling
     useEffect(() => {
@@ -95,10 +97,9 @@ export default function ControlPanel({
 
         {
             const newAgentsData = agents;
-            const newEncounters = encounters;
 
             // Compute differences for logs
-            newAgentsData.forEach((agent: any) => {
+            newAgentsData.forEach((agent) => {
                 const agentId = agent.id;
                 const oldAgent = prevAgentsRef.current[agentId];
                 const newAgent = agent;
@@ -107,10 +108,11 @@ export default function ControlPanel({
                     setLogs(prev => [...prev.slice(-15), `[CLOUD] Agent ${agentId} online. Role: ${newAgent.role || 'GCP Entity'}`]);
                 } else if (JSON.stringify(oldAgent) !== JSON.stringify(newAgent)) {
                     // Modified
-                    if (newAgent.isInteracting && newAgent.lastEncounterDialogue && newAgent.lastEncounterDialogue !== lastProcessedEncounter.current) {
-                        setLogs(prev => [...prev.slice(-15), `[SENTIMENT] Analyzing: "${newAgent.lastEncounterDialogue.substring(0, 30)}..."`, `[DIALOGUE] ${agentId}: ${newAgent.lastEncounterDialogue}`]);
-                        lastProcessedEncounter.current = newAgent.lastEncounterDialogue;
-                        fetchAndQueueTTS(newAgent.lastEncounterDialogue, newAgent.role || "Unknown");
+                    const dialogue = newAgent.lastEncounterDialogue;
+                    if (newAgent.isInteracting && dialogue && dialogue !== lastProcessedEncounter.current) {
+                        setLogs(prev => [...prev.slice(-15), `[SENTIMENT] Analyzing: "${dialogue.substring(0, 30)}..."`, `[DIALOGUE] ${agentId}: ${dialogue}`]);
+                        lastProcessedEncounter.current = dialogue;
+                        fetchAndQueueTTS(dialogue, newAgent.role || "Unknown");
                     } else if (!newAgent.isInteracting && oldAgent.defaultTask !== newAgent.defaultTask) {
                         setLogs(prev => [...prev.slice(-15), `[LOG] ${agentId} Action: ${newAgent.defaultTask?.substring(0, 40) || 'Moving...'}`]);
                     }
@@ -119,7 +121,7 @@ export default function ControlPanel({
                 prevAgentsRef.current[agentId] = { ...newAgent };
             });
         }
-    }, [agents, encounters, isServerDead]);
+    }, [agents, fetchAndQueueTTS, isServerDead]);
 
     const handleKill = () => {
         setIsServerDead(true);
@@ -200,13 +202,13 @@ export default function ControlPanel({
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[9px] text-gray-600 font-mono">{new Date(enc.timestamp).toLocaleTimeString()}</span>
+                                            <span className="text-[9px] text-gray-600 font-mono">{new Date(toDateInput(enc.timestamp)).toLocaleTimeString()}</span>
                                             <span className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${(enc.sentimentScore || 0) > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
                                                 {(enc.sentimentScore || 0) > 0 ? '+' : ''}{(enc.sentimentScore || 0).toFixed(2)} Volts
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-[12px] text-gray-300 font-serif italic border-l-2 border-gray-700 pl-3 leading-relaxed opacity-90">"{enc.transcript}"</p>
+                                    <p className="text-[12px] text-gray-300 font-serif italic border-l-2 border-gray-700 pl-3 leading-relaxed opacity-90">&quot;{enc.transcript}&quot;</p>
                                 </div>
                             ))}
                         </div>
