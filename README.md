@@ -101,14 +101,14 @@ docs/            Sprint and demo documentation
 
 ## Screenshot Gallery
 
-Real local UI capture from this pass:
-
 | Image | Caption |
 |---|---|
-| ![Metropolis local orchestrator UI](docs/screenshots/orchestrator-localhost-3120.png) | Metropolis control surface as loaded on localhost:3120, showing map and health panels while Firestore-backed sections are in local development fallback mode. |
-| ![Metropolis local orchestrator right pane](docs/screenshots/orchestrator-localhost-3120-right-pane.png) | Right-side control and health diagnostics pane showing runtime state details during local simulator startup. |
+| ![Metropolis orchestrator overview](docs/screenshots/metropolis-orchestrator-overview.png) | Main orchestrator surface with map canvas, telemetry sidebar, durable system logs, simulation controls, and live status rail. |
+| ![Metropolis user manual](docs/screenshots/metropolis-demo-manual.png) | Built-in demo manual explaining simulation behavior, agent grounding, semantic memory, and durability testing. |
+| ![Metropolis social graph mode](docs/screenshots/metropolis-social-graph-mode.png) | Social graph mode entry point from the map control bar for inspecting relationships between autonomous city agents. |
+| ![Metropolis spawn controls](docs/screenshots/metropolis-spawn-controls.png) | Simulation control dock with speed controls and NPC spawn form for adding new agents into the city runtime. |
 
-The screenshot was captured from `npm run dev -- -p 3120` without local Firebase credentials. The shell rendered the control surface, while the map pane remained in the expected local-development loading state: `CONNECTING TO FIRESTORE...`.
+These captures were taken from the local orchestrator with `METROPOLIS_PUBLIC_DEMO=true` so the UI can be documented without a Clerk session. Firestore-backed panels use the local `demo-project` fallback when cloud credentials are absent.
 
 ## Run Locally
 
