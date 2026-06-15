@@ -68,7 +68,7 @@ export default function EncounterReplay({ onClose }: { onClose: () => void }) {
                             {selectedId === enc.id && (
                                 <div className="p-4 border-t border-gray-800 bg-black/40 animate-in fade-in duration-200">
                                     <p className="text-[11px] text-gray-300 italic whitespace-pre-wrap border-l-2 border-emerald-500/50 pl-3 leading-relaxed mb-4">
-                                        "{enc.transcript}"
+                                        &quot;{enc.transcript}&quot;
                                     </p>
                                     
                                     <div className="flex justify-between items-end">

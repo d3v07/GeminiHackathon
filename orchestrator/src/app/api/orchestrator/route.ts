@@ -231,10 +231,12 @@ export async function POST(request: Request) {
         }
 
         if (collidingAgent) {
+            const collidingAgentId = collidingAgent.id;
+
             // Fetch fresh doc for A
             const agentADoc = await agentsRef.doc(agentId).get();
             const agentAData = (agentADoc.data() || {}) as AgentRecord;
-            const agentBData = collidingAgentData as AgentRecord;
+            const agentBData = collidingAgent.data;
 
             // Mark both as interacting
             await agentsRef.doc(agentId).update({ isInteracting: true, interactingWith: collidingAgentId });

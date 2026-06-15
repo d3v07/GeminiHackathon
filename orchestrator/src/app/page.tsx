@@ -8,7 +8,10 @@ import SimControls from '@/components/SimControls';
 import { SimulationProvider } from '@/lib/SimulationContext';
 import DebugPanel from '@/components/DebugPanel';
 import { useToast } from '@/components/ToastContainer';
-import * as Sentry from '@sentry/nextjs';
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export default function Home() {
   const [isServerActive, setIsServerActive] = useState(true);
@@ -31,9 +34,9 @@ export default function Home() {
       const data = await res.json();
       console.log(data);
       success('Test NPC successfully spawned.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Failed to spawn test NPC:', e);
-      error(e.message || 'Failed to spawn test NPC');
+      error(getErrorMessage(e) || 'Failed to spawn test NPC');
     }
   };
 
@@ -69,12 +72,12 @@ export default function Home() {
 
                 <section>
                   <h3 className="text-emerald-400 font-bold mb-3 border-b border-gray-800 pb-2">3. Vertex AI Semantic Memory</h3>
-                  <p>When agents meet, they don't just chat randomly. The Orchestrator uses <strong>Vertex AI (text-embedding-004)</strong> to analyze both agents' recent histories. It calculates cosine similarity to find shared concepts, injecting "meaningful context" into the Gemini prompt right before they speak.</p>
+                  <p>When agents meet, they don&apos;t just chat randomly. The Orchestrator uses <strong>Vertex AI (text-embedding-004)</strong> to analyze both agents&apos; recent histories. It calculates cosine similarity to find shared concepts, injecting &quot;meaningful context&quot; into the Gemini prompt right before they speak.</p>
                 </section>
 
                 <section>
                   <h3 className="text-rose-400 font-bold mb-3 border-b border-gray-800 pb-2">4. Testing Durability</h3>
-                  <p>Click the <strong className="text-rose-500">"KILL PROCESS"</strong> button in the top right. This simulates a total crash of the Next.js server. Notice the UI greys out. The agents don't die—their state is perfectly preserved in Firestore. Click <strong className="text-emerald-500">"RESTORE ENGINE"</strong> to instantly resume the simulation from the exact state.</p>
+                  <p>Click the <strong className="text-rose-500">&quot;KILL PROCESS&quot;</strong> button in the top right. This simulates a total crash of the Next.js server. Notice the UI greys out. The agents don&apos;t die—their state is perfectly preserved in Firestore. Click <strong className="text-emerald-500">&quot;RESTORE ENGINE&quot;</strong> to instantly resume the simulation from the exact state.</p>
                 </section>
               </div>
 
@@ -92,7 +95,7 @@ export default function Home() {
         <div className={`w-full h-full md:flex-grow transition-opacity duration-1000 relative z-10 ${isServerActive ? 'opacity-100' : 'opacity-20 pointer-events-none blur-sm'}`}>
           <ErrorBoundary fallbackLabel="Map">
             <MapUI />
-          </Sentry.ErrorBoundary>
+          </ErrorBoundary>
 
           {/* Help Button overlaid on map */}
           <button

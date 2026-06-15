@@ -3,9 +3,12 @@
 import React, { useState } from 'react';
 import { useToast } from './ToastContainer';
 
+const SPEED_OPTIONS = ['0.5x', '1x', '2x'] as const;
+type Speed = (typeof SPEED_OPTIONS)[number];
+
 export default function SimControls() {
   const [isPlaying, setIsPlaying] = useState(true);
-  const [speed, setSpeed] = useState<'0.5x' | '1x' | '2x'>('1x');
+  const [speed, setSpeed] = useState<Speed>('1x');
   const [showSpawnForm, setShowSpawnForm] = useState(false);
   const [spawnData, setSpawnData] = useState({ role: 'Tourist', lat: 40.7580, lng: -73.9855 });
   const [isSpawning, setIsSpawning] = useState(false);
@@ -28,7 +31,7 @@ export default function SimControls() {
     }
   };
 
-  const handleSpeed = async (newSpeed: '0.5x' | '1x' | '2x') => {
+  const handleSpeed = async (newSpeed: Speed) => {
     try {
       const res = await fetch('/api/simulation/control', {
         method: 'POST',
@@ -75,10 +78,10 @@ export default function SimControls() {
       <div className="h-6 w-px bg-gray-700"></div>
 
       <div className="flex bg-gray-900 rounded-full border border-gray-700 overflow-hidden">
-        {['0.5x', '1x', '2x'].map((s) => (
+        {SPEED_OPTIONS.map((s) => (
           <button
             key={s}
-            onClick={() => handleSpeed(s as any)}
+            onClick={() => handleSpeed(s)}
             className={`px-3 py-1.5 text-xs font-mono transition-colors ${speed === s ? 'bg-sky-500/20 text-sky-400 font-bold' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
           >
             {s}

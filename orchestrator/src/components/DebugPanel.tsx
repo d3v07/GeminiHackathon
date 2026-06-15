@@ -8,7 +8,7 @@ export default function DebugPanel() {
   const simulation = useSimulation();
   
   // Track metrics to show in debug
-  const [lastMetrics, setLastMetrics] = useState<any>(null);
+  const [lastMetrics, setLastMetrics] = useState<unknown>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

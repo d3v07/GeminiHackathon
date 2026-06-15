@@ -16,8 +16,6 @@ export default function HealthDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-
     const fetchMetrics = async () => {
       try {
         const res = await fetch('/api/metrics');
@@ -33,7 +31,7 @@ export default function HealthDashboard() {
     };
 
     fetchMetrics();
-    interval = setInterval(fetchMetrics, 10000);
+    const interval = setInterval(fetchMetrics, 10000);
 
     return () => clearInterval(interval);
   }, []);
